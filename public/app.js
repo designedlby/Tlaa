@@ -85,7 +85,8 @@ function setTab(mode) {
 }
 
 function getSelectedRole() {
-  return document.querySelector('input[name="role"]:checked')?.value || "rider";
+  const driver = document.getElementById("roleDriver");
+  return driver && driver.checked ? "driver" : "rider";
 }
 
 async function upsertUserProfile(db, user, name, role) {
