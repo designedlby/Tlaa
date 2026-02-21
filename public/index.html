@@ -193,6 +193,40 @@
             <p class="mt-2 text-[11px] text-slate-400 break-all">UID: <span id="uidLabel"></span></p>
           </div>
 
+          <!-- Rider: Create Trip -->
+<div id="riderBox" class="mt-4 hidden">
+  <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+    <p class="text-sm font-semibold">اطلب رحلة</p>
+    <div class="mt-3 grid gap-3">
+      <input id="pickup" class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+             placeholder="مكان الانطلاق (مثال: دار السلام)" />
+      <input id="dropoff" class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+             placeholder="الوجهة (مثال: المعادي)" />
+      <input id="price" type="number" class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+             placeholder="السعر المقترح بالجنيه (مثال: 70)" />
+      <button id="createTripBtn"
+        class="w-full rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-semibold py-3">
+        إرسال الطلب
+      </button>
+      <p id="riderStatus" class="text-xs text-slate-400"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Driver: Pending Trips -->
+<div id="driverBox" class="mt-4 hidden">
+  <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+    <div class="flex items-center justify-between">
+      <p class="text-sm font-semibold">طلبات متاحة</p>
+      <button id="refreshTripsBtn" class="text-xs text-slate-300 hover:text-white underline underline-offset-4">تحديث</button>
+    </div>
+
+    <div id="tripsList" class="mt-3 grid gap-3"></div>
+    <p class="mt-2 text-xs text-slate-400">ملاحظة: في المرحلة دي بنعرض طلبات pending بشكل مبسّط.</p>
+  </div>
+</div>
+
+          
           <button id="logoutBtn"
             class="mt-4 w-full rounded-2xl bg-rose-500/90 hover:bg-rose-500 text-white font-semibold py-3">
             تسجيل خروج
