@@ -90,18 +90,14 @@ function getSelectedRole() {
 
 async function upsertUserProfile(db, user, name, role) {
   const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      uid: user.uid,
-      name: name || "بدون اسم",
-      role, // rider | driver
-      ratingAvg: 5,
-      ratingCount: 0,
-      createdAt: serverTimestamp()
-    });
-  }
+  await setDoc(ref, {
+    uid: user.uid,
+    name: name || "بدون اسم",
+    role,
+    ratingAvg: 5,
+    ratingCount: 0,
+    createdAt: serverTimestamp()
+  }, { merge: true });
 }
 
 // ✅ تشغيل Firebase
