@@ -2,10 +2,46 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tamnaya - Pilot</title>
+  <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
-  <h1>لو شايف دي يبقى الموقع شغال صح ✅</h1>
+  <main class="card">
+    <h1>تمناية - نسخة تجريبية</h1>
+
+    <section id="authBox">
+      <h2>تسجيل حساب</h2>
+      <input id="name" placeholder="الاسم" />
+      <input id="email" placeholder="الإيميل" />
+      <input id="password" type="password" placeholder="الرقم السري" />
+
+      <div class="roles">
+        <label><input type="radio" name="role" value="rider" checked> راكب</label>
+        <label><input type="radio" name="role" value="driver"> سائق</label>
+      </div>
+
+      <button id="signupBtn">إنشاء حساب</button>
+
+      <hr/>
+
+      <h2>تسجيل دخول</h2>
+      <input id="loginEmail" placeholder="الإيميل" />
+      <input id="loginPassword" type="password" placeholder="الرقم السري" />
+      <button id="loginBtn">دخول</button>
+
+      <p class="hint">ملاحظة: لاحقًا هنضيف تسجيل بالموبايل + توثيق السائق.</p>
+    </section>
+
+    <section id="appBox" class="hidden">
+      <h2>أهلاً <span id="userLabel"></span></h2>
+      <p>دورك: <b id="roleLabel"></b></p>
+      <p>UID: <code id="uidLabel"></code></p>
+
+      <button id="logoutBtn">تسجيل خروج</button>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
 </body>
 </html>
