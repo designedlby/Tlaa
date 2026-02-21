@@ -12,7 +12,15 @@ import {
   doc,
   setDoc,
   getDoc,
-  serverTimestamp
+  serverTimestamp,
+  collection,
+  addDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 // ✅ ضع بيانات مشروعك هنا من Firebase Console (Web app config)
@@ -207,8 +215,156 @@ onAuthStateChanged(auth, async (user) => {
     signupPanel.classList.add("hidden");
     loginPanel.classList.add("hidden");
     appBox.classList.remove("hidden");
+    
+    // Show rider/driver boxes
+const riderBox = document.getElementById("riderBox");
+const driverBox = document.getElementById("driverBox");
+
+if (profile.role === "rider") {
+  riderBox?.classList.remove("hidden");
+  driverBox?.classList.add("hidden");
+} else {
+  driverBox?.classList.remove("hidden");
+  riderBox?.classList.add("hidden");
+  await loadPendingTripsForDriver(user.uid);
+}
   } catch (e) {
     console.error(e);
     showAlert("حصلت مشكلة في قراءة بيانات المستخدم من Firestore.", "error");
   }
 });
+
+async function createTrip(riderId) {
+  const pickup = document.getElementById("pickup")?.value?.trim();
+  const dropoff = document.getElementById("dropoff")?.value?.trim();
+  const priceNum = Number(document.getElementById("price")?.value);
+
+  const riderStatus = document.getElementById("riderStatus");
+
+  if (!pickup || !dropoff || !priceNum || priceNum <= 0) {
+    if (riderStatus) riderStatus.textContent = "اكتب مكان الانطلاق والوجهة والسعر المقترح بشكل صحيح.";
+    return;
+  }
+
+  await addDoc(collection(db, "trips"), {
+    riderId,
+    driverId: null,
+    pickup,
+    dropoff,
+    price: priceNum,
+    status: "pending",
+    createdAt: serverTimestamp()
+  });
+
+  if (riderStatus) riderStatus.textContent = "تم إرسال الطلب ✅ انتظر قبول السائق.";
+}
+
+async function loadPendingTripsForDriver(driverId) {
+  const list = document.getElementById("tripsList");
+  if (!list) return;
+
+  list.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل الطلبات...</div>`;
+
+  // ⚠️ للـMVP: هنجيب آخر 20 رحلة pending
+  const q = query(
+    collection(db, "trips"),
+    where("status", "==", "pending"),
+    orderBy("createdAt", "desc"),
+    limit(20)
+  );
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    list.innerHTML = `<div class="text-xs text-slate-400">مفيش طلبات حالياً.</div>`;
+    return;
+  }
+
+  list.innerHTML = "";
+
+  snap.forEach((docSnap) => {
+    const t = docSnap.data();
+    const id = docSnap.id;
+
+    const card = document.createElement("div");
+    card.className = "rounded-2xl bg-white/5 ring-1 ring-white/10 p-4";
+
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm font-semibold">${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}</div>
+          <div class="mt-1 text-xs text-slate-300">السعر: <b>${t.price}</b> جنيه</div>
+        </div>
+        <button data-trip="${id}"
+          class="acceptBtn rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
+          قبول
+        </button>
+      </div>
+      <div class="mt-2 text-[11px] text-slate-400 break-all">Trip: ${id}</div>
+    `;
+
+    list.appendChild(card);
+  });
+
+  // bind accept buttons
+  list.querySelectorAll(".acceptBtn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const tripId = btn.getAttribute("data-trip");
+      if (!tripId) return;
+      btn.setAttribute("disabled", "true");
+      btn.textContent = "جارٍ القبول...";
+
+      try {
+        await acceptTrip(driverId, tripId);
+        btn.textContent = "تم ✅";
+        // reload
+        await loadPendingTripsForDriver(driverId);
+      } catch (e) {
+        console.error(e);
+        btn.removeAttribute("disabled");
+        btn.textContent = "قبول";
+        showAlert("فشل قبول الرحلة. ممكن تكون اتقبلت من سائق تاني.", "error");
+      }
+    });
+  });
+}
+
+async function acceptTrip(driverId, tripId) {
+  const ref = doc(db, "trips", tripId);
+
+  // تحديث واحد: pending -> accepted + driverId
+  await updateDoc(ref, {
+    status: "accepted",
+    driverId
+  });
+}
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+// bind rider button
+document.getElementById("createTripBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return showAlert("لازم تسجل دخول الأول.", "error");
+  try {
+    await createTrip(user.uid);
+    showAlert("تم إرسال طلب الرحلة ✅", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("حصل خطأ في إنشاء الرحلة.", "error");
+  }
+});
+
+// bind driver refresh
+document.getElementById("refreshTripsBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return showAlert("لازم تسجل دخول الأول.", "error");
+  await loadPendingTripsForDriver(user.uid);
+});
+
