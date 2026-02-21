@@ -228,6 +228,7 @@ if (profile.role === "driver") {
 } else {
   riderBox?.classList.remove("hidden");
   driverBox?.classList.add("hidden");
+  watchMyLatestTrip(user.uid);
 }
   } catch (e) {
     console.error(e);
@@ -349,6 +350,51 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
+// ========== Rider Realtime: watch latest trip ==========
+let unsubscribeMyTrip = null;
+
+function watchMyLatestTrip(riderId) {
+  const info = document.getElementById("myTripInfo");
+  const cancelBtn = document.getElementById("cancelTripBtn");
+
+  if (unsubscribeMyTrip) unsubscribeMyTrip();
+
+  const q = query(
+    collection(db, "trips"),
+    where("riderId", "==", riderId),
+    orderBy("createdAt", "desc"),
+    limit(1)
+  );
+
+  unsubscribeMyTrip = onSnapshot(q, (snap) => {
+    if (snap.empty) {
+      if (info) info.textContent = "لا يوجد طلب حاليًا.";
+      cancelBtn?.classList.add("hidden");
+      return;
+    }
+
+    const docSnap = snap.docs[0];
+    const t = docSnap.data();
+
+    const status = t.status || "pending";
+    const driverTxt = t.driverId ? ` | سائق: ${t.driverId}` : "";
+    const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
+
+    if (info) {
+      info.textContent = `الحالة: ${status} | ${t.pickup} → ${t.dropoff}${priceTxt}${driverTxt}`;
+    }
+
+    if (status === "pending") cancelBtn?.classList.remove("hidden");
+    else cancelBtn?.classList.add("hidden");
+
+    cancelBtn?.setAttribute("data-trip", docSnap.id);
+  }, (err) => {
+    console.error(err);
+    showAlert("مشكلة في متابعة الرحلة الحالية (Realtime).", "error");
+  });
+}
+
+
 // bind rider button
 document.getElementById("createTripBtn")?.addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -367,5 +413,22 @@ document.getElementById("refreshTripsBtn")?.addEventListener("click", async () =
   const user = auth.currentUser;
   if (!user) return showAlert("لازم تسجل دخول الأول.", "error");
   await loadPendingTripsForDriver(user.uid);
+});
+
+document.getElementById("cancelTripBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const btn = document.getElementById("cancelTripBtn");
+  const tripId = btn?.getAttribute("data-trip");
+  if (!tripId) return;
+
+  try {
+    await updateDoc(doc(db, "trips", tripId), { status: "cancelled" });
+    showAlert("تم إلغاء الطلب ✅", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل إلغاء الطلب.", "error");
+  }
 });
 
