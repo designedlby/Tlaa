@@ -216,17 +216,17 @@ onAuthStateChanged(auth, async (user) => {
     loginPanel.classList.add("hidden");
     appBox.classList.remove("hidden");
     
-    // Show rider/driver boxes
+// Show rider/driver boxes
 const riderBox = document.getElementById("riderBox");
 const driverBox = document.getElementById("driverBox");
 
-if (profile.role === "rider") {
-  riderBox?.classList.remove("hidden");
-  driverBox?.classList.add("hidden");
-} else {
+if (profile.role === "driver") {
   driverBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
   await loadPendingTripsForDriver(user.uid);
+} else {
+  riderBox?.classList.remove("hidden");
+  driverBox?.classList.add("hidden");
 }
   } catch (e) {
     console.error(e);
