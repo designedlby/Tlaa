@@ -20,7 +20,8 @@ import {
   orderBy,
   limit,
   getDocs,
-  updateDoc
+  updateDoc,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 // ✅ ضع بيانات مشروعك هنا من Firebase Console (Web app config)
