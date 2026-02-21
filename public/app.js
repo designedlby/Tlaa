@@ -17,13 +17,13 @@ import {
 
 // 1) ضع بيانات مشروعك هنا (من Firebase Console -> Web app config)
 const firebaseConfig = {
-  apiKey: "AIzaSyDphYF6FM7ILBTtQYz1USvJz53rmYVprUk",
-  authDomain: "tal3a-app-35b4c.firebaseapp.com",
-  projectId: "tal3a-app-35b4c",
-  storageBucket: "tal3a-app-35b4c.firebasestorage.app",
-  messagingSenderId: "831003684441",
-  appId: "1:831003684441:web:11eee75632795987f38b48",
-  measurementId: "G-6J6R8E38CQ"
+  apiKey: "AIzaSyCf91J74YAinpUsiwo2uKHb1ejp3aKlLw8",
+  authDomain: "tal3a-f4d9b.firebaseapp.com",
+  projectId: "tal3a-f4d9b",
+  storageBucket: "tal3a-f4d9b.firebasestorage.app",
+  messagingSenderId: "103353080703",
+  appId: "1:103353080703:web:b31304303d991c8b34584a",
+  measurementId: "G-KGY2LHVWXK"
 };
 
 const app = initializeApp(firebaseConfig);
