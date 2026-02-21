@@ -3,44 +3,212 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Tamnaya - Pilot</title>
-  <link rel="stylesheet" href="styles.css"/>
+  <title>طلعة | تمناية</title>
+
+  <!-- Tailwind CDN (بدون أي تثبيت) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <meta name="color-scheme" content="dark light">
 </head>
-<body>
-  <main class="card">
-    <h1>تمناية - نسخة تجريبية</h1>
 
-    <section id="authBox">
-      <h2>تسجيل حساب</h2>
-      <input id="name" placeholder="الاسم" />
-      <input id="email" placeholder="الإيميل" />
-      <input id="password" type="password" placeholder="الرقم السري" />
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <!-- Background glow -->
+  <div class="pointer-events-none fixed inset-0 overflow-hidden">
+    <div class="absolute -top-40 right-0 h-96 w-96 rounded-full bg-indigo-500/25 blur-3xl"></div>
+    <div class="absolute -bottom-40 left-0 h-96 w-96 rounded-full bg-fuchsia-500/20 blur-3xl"></div>
+  </div>
 
-      <div class="roles">
-        <label><input type="radio" name="role" value="rider" checked> راكب</label>
-        <label><input type="radio" name="role" value="driver"> سائق</label>
+  <main class="relative mx-auto max-w-6xl px-4 py-10">
+    <!-- Header -->
+    <header class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+          <span class="text-xl">🚐</span>
+        </div>
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight">طلعة</h1>
+          <p class="text-xs text-slate-300">نسخة تجريبية — تمناية خاصة (فردي/عائلي)</p>
+        </div>
       </div>
 
-      <button id="signupBtn">إنشاء حساب</button>
+      <a class="text-xs text-slate-300 hover:text-white underline underline-offset-4"
+         href="#"
+         onclick="return false;">الدعم</a>
+    </header>
 
-      <hr/>
+    <!-- Content -->
+    <section class="mt-8 grid gap-6 lg:grid-cols-2">
+      <!-- Left: marketing / info -->
+      <div class="rounded-3xl bg-white/5 ring-1 ring-white/10 p-6 lg:p-8">
+        <h2 class="text-2xl font-bold leading-tight">
+          اربط الراكب بسائق التمناية<br class="hidden sm:block"/>
+          في رحلة خاصة — بشكل راقي وآمن.
+        </h2>
 
-      <h2>تسجيل دخول</h2>
-      <input id="loginEmail" placeholder="الإيميل" />
-      <input id="loginPassword" type="password" placeholder="الرقم السري" />
-      <button id="loginBtn">دخول</button>
+        <p class="mt-3 text-slate-300 leading-relaxed">
+          ده مجرد بداية. هنضيف قريبًا: طلب رحلة، قبول/رفض، حالات الرحلة، رصيد السائق لضمان العمولة، وتقييمات.
+        </p>
 
-      <p class="hint">ملاحظة: لاحقًا هنضيف تسجيل بالموبايل + توثيق السائق.</p>
+        <div class="mt-6 grid gap-3 sm:grid-cols-2">
+          <div class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+            <p class="text-sm font-semibold">✅ تسجيل ذاتي</p>
+            <p class="mt-1 text-xs text-slate-300">راكب وسائق يسجلوا بنفسهم.</p>
+          </div>
+          <div class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+            <p class="text-sm font-semibold">💳 عمولة مضمونة</p>
+            <p class="mt-1 text-xs text-slate-300">بنظام رصيد السائق لاحقًا.</p>
+          </div>
+          <div class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+            <p class="text-sm font-semibold">📍 خرائط</p>
+            <p class="mt-1 text-xs text-slate-300">Pickup/Dropoff (مرحلة 2).</p>
+          </div>
+          <div class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+            <p class="text-sm font-semibold">⭐ تقييمات</p>
+            <p class="mt-1 text-xs text-slate-300">بعد أول رحلة فعلية.</p>
+          </div>
+        </div>
+
+        <div class="mt-6 text-xs text-slate-400">
+          <span class="inline-flex items-center gap-2 rounded-full bg-white/5 ring-1 ring-white/10 px-3 py-1">
+            🔒 بياناتك مؤمنة بقواعد Firebase (هنقفلها صح بعد الاختبار)
+          </span>
+        </div>
+      </div>
+
+      <!-- Right: auth card -->
+      <div class="rounded-3xl bg-white/5 ring-1 ring-white/10 p-6 lg:p-8">
+        <!-- Tabs -->
+        <div class="flex gap-2 rounded-2xl bg-black/20 ring-1 ring-white/10 p-1">
+          <button id="tabSignup" class="flex-1 rounded-xl px-4 py-2 text-sm font-semibold bg-white/10">
+            إنشاء حساب
+          </button>
+          <button id="tabLogin" class="flex-1 rounded-xl px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white">
+            تسجيل دخول
+          </button>
+        </div>
+
+        <!-- Alerts -->
+        <div id="alertBox" class="mt-4 hidden rounded-2xl border border-white/10 bg-white/5 p-3 text-sm"></div>
+
+        <!-- Signup -->
+        <div id="signupPanel" class="mt-6">
+          <div class="grid gap-3">
+            <div>
+              <label class="text-xs text-slate-300">الاسم</label>
+              <input id="name" class="mt-1 w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                     placeholder="مثال: Mostafa" />
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="text-xs text-slate-300">الإيميل</label>
+                <input id="email" class="mt-1 w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                       placeholder="name@email.com" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-300">الرقم السري</label>
+                <input id="password" type="password"
+                       class="mt-1 w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                       placeholder="••••••••" />
+              </div>
+            </div>
+
+            <div class="mt-2">
+              <p class="text-xs text-slate-300 mb-2">اختار نوع الحساب</p>
+
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="roleCard">
+                  <input type="radio" name="role" value="rider" checked class="sr-only">
+                  <div class="roleBox">
+                    <div class="flex items-center justify-between">
+                      <div class="text-sm font-semibold">راكب</div>
+                      <div class="text-lg">🧍</div>
+                    </div>
+                    <div class="mt-1 text-xs text-slate-300">اطلب رحلة خاصة بسهولة.</div>
+                  </div>
+                </label>
+
+                <label class="roleCard">
+                  <input type="radio" name="role" value="driver" class="sr-only">
+                  <div class="roleBox">
+                    <div class="flex items-center justify-between">
+                      <div class="text-sm font-semibold">سائق</div>
+                      <div class="text-lg">🚐</div>
+                    </div>
+                    <div class="mt-1 text-xs text-slate-300">استقبل طلبات واربح.</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <button id="signupBtn"
+              class="mt-2 w-full rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-semibold py-3">
+              إنشاء الحساب
+            </button>
+
+            <p class="text-xs text-slate-400">
+              بإنشاء الحساب أنت توافق على سياسة الاستخدام (هنضيفها لاحقًا).
+            </p>
+          </div>
+        </div>
+
+        <!-- Login -->
+        <div id="loginPanel" class="mt-6 hidden">
+          <div class="grid gap-3">
+            <div>
+              <label class="text-xs text-slate-300">الإيميل</label>
+              <input id="loginEmail" class="mt-1 w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                     placeholder="name@email.com" />
+            </div>
+
+            <div>
+              <label class="text-xs text-slate-300">الرقم السري</label>
+              <input id="loginPassword" type="password"
+                     class="mt-1 w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                     placeholder="••••••••" />
+            </div>
+
+            <button id="loginBtn"
+              class="mt-2 w-full rounded-2xl bg-white/10 hover:bg-white/15 ring-1 ring-white/10 font-semibold py-3">
+              دخول
+            </button>
+
+            <p class="text-xs text-slate-400">
+              لو نسيت كلمة المرور هنضيف “Reset” بعدين.
+            </p>
+          </div>
+        </div>
+
+        <!-- App box after login -->
+        <div id="appBox" class="mt-6 hidden">
+          <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+            <p class="text-sm">أهلاً <span id="userLabel" class="font-semibold"></span> 👋</p>
+            <p class="mt-1 text-xs text-slate-300">دورك: <b id="roleLabel"></b></p>
+            <p class="mt-2 text-[11px] text-slate-400 break-all">UID: <span id="uidLabel"></span></p>
+          </div>
+
+          <button id="logoutBtn"
+            class="mt-4 w-full rounded-2xl bg-rose-500/90 hover:bg-rose-500 text-white font-semibold py-3">
+            تسجيل خروج
+          </button>
+        </div>
+
+        <!-- tiny css for role cards -->
+        <style>
+          .roleBox { @apply rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 cursor-pointer transition; }
+          .roleCard input:checked + .roleBox { @apply ring-2 ring-indigo-400 bg-white/5; }
+        </style>
+      </div>
     </section>
 
-    <section id="appBox" class="hidden">
-      <h2>أهلاً <span id="userLabel"></span></h2>
-      <p>دورك: <b id="roleLabel"></b></p>
-      <p>UID: <code id="uidLabel"></code></p>
-
-      <button id="logoutBtn">تسجيل خروج</button>
-    </section>
+    <footer class="mt-10 text-center text-xs text-slate-500">
+      © <span id="year"></span> طلعة — نسخة تجريبية
+    </footer>
   </main>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
 
   <script type="module" src="app.js"></script>
 </body>
