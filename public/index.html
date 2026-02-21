@@ -117,34 +117,34 @@
   <p class="text-xs text-slate-300 mb-2">اختار نوع الحساب</p>
 
   <div class="grid gap-3 sm:grid-cols-2">
-    <!-- Rider -->
-    <label class="block cursor-pointer">
-      <input type="radio" name="role" value="rider" checked class="peer sr-only">
-      <div
-        class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 transition
-               peer-checked:ring-2 peer-checked:ring-indigo-400 peer-checked:bg-white/5">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-semibold">راكب</div>
-          <div class="text-lg">🧍</div>
-        </div>
-        <div class="mt-1 text-xs text-slate-300">اطلب رحلة خاصة بسهولة.</div>
+    <!-- Rider Card -->
+    <div id="cardRider"
+      class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 cursor-pointer transition">
+      <div class="flex items-center justify-between">
+        <div class="text-sm font-semibold">راكب</div>
+        <div class="text-lg">🧍</div>
       </div>
-    </label>
+      <div class="mt-1 text-xs text-slate-300">اطلب رحلة خاصة بسهولة.</div>
+    </div>
 
-    <!-- Driver -->
-    <label class="block cursor-pointer">
-      <input type="radio" name="role" value="driver" class="peer sr-only">
-      <div
-        class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 transition
-               peer-checked:ring-2 peer-checked:ring-indigo-400 peer-checked:bg-white/5">
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-semibold">سائق</div>
-          <div class="text-lg">🚐</div>
-        </div>
-        <div class="mt-1 text-xs text-slate-300">استقبل طلبات واربح.</div>
+    <!-- Driver Card -->
+    <div id="cardDriver"
+      class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 cursor-pointer transition">
+      <div class="flex items-center justify-between">
+        <div class="text-sm font-semibold">سائق</div>
+        <div class="text-lg">🚐</div>
       </div>
-    </label>
+      <div class="mt-1 text-xs text-slate-300">استقبل طلبات واربح.</div>
+    </div>
   </div>
+
+  <!-- Radios (hidden but real) -->
+  <div class="hidden">
+    <input type="radio" id="roleRider" name="role" value="rider" checked />
+    <input type="radio" id="roleDriver" name="role" value="driver" />
+  </div>
+
+  <p class="mt-2 text-xs text-slate-400">المختار الآن: <b id="rolePreview">rider</b></p>
 </div>
 
             <button id="signupBtn"
@@ -213,6 +213,34 @@
     document.getElementById("year").textContent = new Date().getFullYear();
   </script>
 
+  <script>
+  const cardRider = document.getElementById("cardRider");
+  const cardDriver = document.getElementById("cardDriver");
+  const roleRider = document.getElementById("roleRider");
+  const roleDriver = document.getElementById("roleDriver");
+  const rolePreview = document.getElementById("rolePreview");
+
+  function paint() {
+    const isDriver = roleDriver.checked;
+    cardDriver.classList.toggle("ring-2", isDriver);
+    cardDriver.classList.toggle("ring-indigo-400", isDriver);
+    cardDriver.classList.toggle("bg-white/5", isDriver);
+
+    const isRider = roleRider.checked;
+    cardRider.classList.toggle("ring-2", isRider);
+    cardRider.classList.toggle("ring-indigo-400", isRider);
+    cardRider.classList.toggle("bg-white/5", isRider);
+
+    rolePreview.textContent = isDriver ? "driver" : "rider";
+  }
+
+  cardRider.addEventListener("click", () => { roleRider.checked = true; paint(); });
+  cardDriver.addEventListener("click", () => { roleDriver.checked = true; paint(); });
+
+  paint();
+</script>
+
+  
   <script type="module" src="app.js"></script>
 </body>
 </html>
