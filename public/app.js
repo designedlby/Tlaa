@@ -303,20 +303,24 @@ async function loadPendingTripsForDriver(driverId) {
     card.className = "rounded-2xl bg-white/5 ring-1 ring-white/10 p-4";
 
     card.innerHTML = `
-  <div class="flex items-center justify-between gap-3">
+  <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+
     <div class="min-w-0">
-      <div class="text-sm font-semibold truncate">
+      <div class="text-sm font-semibold break-words">
         ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
       </div>
-      <div class="mt-1 text-xs text-slate-300">
+
+      <div class="mt-1 text-xs text-slate-300 break-words">
         السعر: <b>${t.price}</b> جنيه
         ${t.kmEstimated ? ` | المسافة: <b>${t.kmEstimated}</b> كم` : ""}
       </div>
     </div>
+
     <button data-trip="${id}"
-      class="acceptBtn shrink-0 rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
+      class="acceptBtn w-full sm:w-auto rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
       قبول
     </button>
+
   </div>
 
   <div class="mt-3 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black/20">
