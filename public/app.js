@@ -358,7 +358,12 @@ async function acceptTrip(driverId, tripId) {
   // تحديث واحد: pending -> accepted + driverId
   await updateDoc(ref, {
     status: "accepted",
-    driverId
+    driverId,
+    acceptedAt: serverTimestamp(),
+    cancelRequestedBy: null,
+    cancelRequestedAt: null,
+    cancelledAt: null,
+    completedAt: null
   });
 }
 
