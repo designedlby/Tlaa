@@ -302,20 +302,31 @@ async function loadPendingTripsForDriver(driverId) {
     card.className = "rounded-2xl bg-white/5 ring-1 ring-white/10 p-4";
 
     card.innerHTML = `
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="text-sm font-semibold">${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}</div>
-          <div class="mt-1 text-xs text-slate-300">السعر: <b>${t.price}</b> جنيه</div>
-        </div>
-        <button data-trip="${id}"
-          class="acceptBtn rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
-          قبول
-        </button>
+  <div class="flex items-center justify-between gap-3">
+    <div class="min-w-0">
+      <div class="text-sm font-semibold truncate">
+        ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
       </div>
-      <div class="mt-2 text-[11px] text-slate-400 break-all">Trip: ${id}</div>
-    `;
+      <div class="mt-1 text-xs text-slate-300">
+        السعر: <b>${t.price}</b> جنيه
+        ${t.kmEstimated ? ` | المسافة: <b>${t.kmEstimated}</b> كم` : ""}
+      </div>
+    </div>
+    <button data-trip="${id}"
+      class="acceptBtn shrink-0 rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
+      قبول
+    </button>
+  </div>
+
+  <div class="mt-3 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black/20">
+    <div class="miniMap" id="map_${id}" style="height: 180px;"></div>
+  </div>
+
+  <div class="mt-2 text-[11px] text-slate-400 break-all">Trip: ${id}</div>
+`;
 
     list.appendChild(card);
+    renderMiniMap(`map_${id}`, t);
   });
 
   // bind accept buttons
@@ -358,6 +369,44 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function renderMiniMap(mapId, trip) {
+  try {
+    if (typeof L === "undefined") return;
+
+    const el = document.getElementById(mapId);
+    if (!el) return;
+
+    // لازم يكون عندنا lat/lng
+    if (!trip.pickupLat || !trip.pickupLng || !trip.dropoffLat || !trip.dropoffLng) {
+      el.innerHTML = `<div class="p-4 text-xs text-slate-300">لا توجد إحداثيات للخريطة.</div>`;
+      return;
+    }
+
+    const p1 = [trip.pickupLat, trip.pickupLng];
+    const p2 = [trip.dropoffLat, trip.dropoffLng];
+
+    const m = L.map(mapId, { zoomControl: false, attributionControl: false });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(m);
+
+    const b = L.latLngBounds([p1, p2]);
+    m.fitBounds(b.pad(0.25));
+
+    L.marker(p1).addTo(m);
+    L.marker(p2).addTo(m);
+
+    // منع مشاكل اللمس داخل الكارت
+    m.dragging.disable();
+    m.scrollWheelZoom.disable();
+    m.doubleClickZoom.disable();
+    m.boxZoom.disable();
+    m.keyboard.disable();
+    if (m.tap) m.tap.disable();
+    el.style.pointerEvents = "none";
+  } catch (e) {
+    console.error("miniMap error", e);
+  }
 }
 
 // ================= Map + Search + Pricing (Rider) =================
