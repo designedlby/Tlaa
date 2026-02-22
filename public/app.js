@@ -225,6 +225,7 @@ if (profile.role === "driver") {
   driverBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
   await loadPendingTripsForDriver(user.uid);
+  watchDriverCurrentTrip(user.uid);
 } else {
   riderBox?.classList.remove("hidden");
   driverBox?.classList.add("hidden");
@@ -639,6 +640,7 @@ let unsubscribeMyTrip = null;
 function watchMyLatestTrip(riderId) {
   const info = document.getElementById("myTripInfo");
   const cancelBtn = document.getElementById("cancelTripBtn");
+  const requestBtn = document.getElementById("requestCancelBtn");
 
   if (unsubscribeMyTrip) unsubscribeMyTrip();
 
@@ -653,6 +655,7 @@ function watchMyLatestTrip(riderId) {
     if (snap.empty) {
       if (info) info.textContent = "لا يوجد طلب حاليًا.";
       cancelBtn?.classList.add("hidden");
+      requestBtn?.classList.add("hidden");
       return;
     }
 
@@ -667,16 +670,96 @@ function watchMyLatestTrip(riderId) {
       info.textContent = `الحالة: ${status} | ${t.pickup} → ${t.dropoff}${priceTxt}${driverTxt}`;
     }
 
-    if (status === "pending") cancelBtn?.classList.remove("hidden");
-    else cancelBtn?.classList.add("hidden");
+    // pending: الراكب يقدر يلغي فورًا (قبل ما السائق يقبل)
+if (status === "pending") {
+  cancelBtn?.classList.remove("hidden");
+  requestBtn?.classList.add("hidden");
+}
+// accepted: الراكب مايلغيش فورًا، يطلب إلغاء والسائق يوافق
+else if (status === "accepted") {
+  cancelBtn?.classList.add("hidden");
+  requestBtn?.classList.remove("hidden");
+}
+// أي حالة تانية: اخفي الاتنين
+else {
+  cancelBtn?.classList.add("hidden");
+  requestBtn?.classList.add("hidden");
+}
 
-    cancelBtn?.setAttribute("data-trip", docSnap.id);
+// خزّن tripId في الأزرار
+cancelBtn?.setAttribute("data-trip", docSnap.id);
+requestBtn?.setAttribute("data-trip", docSnap.id);
   }, (err) => {
     console.error(err);
     showAlert("مشكلة في متابعة الرحلة الحالية (Realtime).", "error");
   });
 }
 
+// ========== Driver Realtime: watch current trip ==========
+let unsubscribeDriverTrip = null;
+
+// هنعتبر "الرحلة الحالية" هي آخر رحلة للسائق ليست completed/cancelled
+function watchDriverCurrentTrip(driverId) {
+  const info = document.getElementById("driverTripInfo");
+  const approveBtn = document.getElementById("approveCancelBtn");
+  const completeBtn = document.getElementById("completeTripBtn");
+  const startBtn = document.getElementById("startTripBtn"); // مش هنستخدمه دلوقتي (اختياري)
+
+  if (unsubscribeDriverTrip) unsubscribeDriverTrip();
+
+  const q = query(
+    collection(db, "trips"),
+    where("driverId", "==", driverId),
+    orderBy("acceptedAt", "desc"),
+    limit(1)
+  );
+
+  unsubscribeDriverTrip = onSnapshot(q, (snap) => {
+    if (snap.empty) {
+      if (info) info.textContent = "لا توجد رحلة حالية.";
+      approveBtn?.classList.add("hidden");
+      completeBtn?.classList.add("hidden");
+      startBtn?.classList.add("hidden");
+      return;
+    }
+
+    const docSnap = snap.docs[0];
+    const t = docSnap.data();
+    const tripId = docSnap.id;
+
+    const status = t.status || "accepted";
+    const riderTxt = t.riderId ? ` | Rider: ${t.riderId}` : "";
+    const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
+    const kmTxt = t.kmEstimated ? ` | ${t.kmEstimated} كم` : "";
+
+    if (info) {
+      info.textContent = `الحالة: ${status} | ${t.pickup} → ${t.dropoff}${kmTxt}${priceTxt}${riderTxt}`;
+    }
+
+    // أخفي الكل افتراضيًا
+    approveBtn?.classList.add("hidden");
+    completeBtn?.classList.add("hidden");
+    startBtn?.classList.add("hidden");
+
+    // لو الراكب طلب إلغاء
+    if (status === "cancel_requested") {
+      approveBtn?.classList.remove("hidden");
+    }
+
+    // لو الرحلة مقبولة (ولسه شغالة)
+    if (status === "accepted") {
+      completeBtn?.classList.remove("hidden");
+    }
+
+    // خزّن tripId في الأزرار
+    approveBtn?.setAttribute("data-trip", tripId);
+    completeBtn?.setAttribute("data-trip", tripId);
+    startBtn?.setAttribute("data-trip", tripId);
+  }, (err) => {
+    console.error(err);
+    showAlert("مشكلة في متابعة رحلة السائق الحالية (Realtime).", "error");
+  });
+}
 
 // bind rider button
 document.getElementById("createTripBtn")?.addEventListener("click", async () => {
@@ -715,3 +798,67 @@ document.getElementById("cancelTripBtn")?.addEventListener("click", async () => 
   }
 });
 
+document.getElementById("requestCancelBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const btn = document.getElementById("requestCancelBtn");
+  const tripId = btn?.getAttribute("data-trip");
+  if (!tripId) return;
+
+  try {
+    await updateDoc(doc(db, "trips", tripId), {
+      status: "cancel_requested",
+      cancelRequestedBy: user.uid,
+      cancelRequestedAt: serverTimestamp()
+    });
+    showAlert("تم إرسال طلب الإلغاء للسائق ✅", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل إرسال طلب الإلغاء.", "error");
+  }
+});
+
+// Driver: approve cancel
+document.getElementById("approveCancelBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const btn = document.getElementById("approveCancelBtn");
+  const tripId = btn?.getAttribute("data-trip");
+  if (!tripId) return;
+
+  try {
+    await updateDoc(doc(db, "trips", tripId), {
+      status: "cancelled",
+      cancelledAt: serverTimestamp(),
+      cancelledBy: user.uid
+    });
+    showAlert("تم إلغاء الرحلة ✅", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل إلغاء الرحلة.", "error");
+  }
+});
+
+// Driver: complete trip
+document.getElementById("completeTripBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const btn = document.getElementById("completeTripBtn");
+  const tripId = btn?.getAttribute("data-trip");
+  if (!tripId) return;
+
+  try {
+    await updateDoc(doc(db, "trips", tripId), {
+      status: "completed",
+      completedAt: serverTimestamp(),
+      completedBy: user.uid
+    });
+    showAlert("تم إنهاء الرحلة ✅", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل إنهاء الرحلة.", "error");
+  }
+});
