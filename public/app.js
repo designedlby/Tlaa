@@ -228,6 +228,7 @@ if (profile.role === "driver") {
 } else {
   riderBox?.classList.remove("hidden");
   driverBox?.classList.add("hidden");
+  initMapOnce();
   watchMyLatestTrip(user.uid);
 }
   } catch (e) {
@@ -237,23 +238,32 @@ if (profile.role === "driver") {
 });
 
 async function createTrip(riderId) {
-  const pickup = document.getElementById("pickup")?.value?.trim();
-  const dropoff = document.getElementById("dropoff")?.value?.trim();
-  const priceNum = Number(document.getElementById("price")?.value);
-
   const riderStatus = document.getElementById("riderStatus");
 
-  if (!pickup || !dropoff || !priceNum || priceNum <= 0) {
-    if (riderStatus) riderStatus.textContent = "اكتب مكان الانطلاق والوجهة والسعر المقترح بشكل صحيح.";
+  if (!pickupLatLng || !dropoffLatLng) {
+    if (riderStatus) riderStatus.textContent = "لازم تختار مكان الركوب والوجهة على الخريطة أو بالبحث.";
     return;
   }
+
+  const kmStraight = haversineKm(pickupLatLng, dropoffLatLng);
+  const kmRoad = kmStraight * PRICING.roadFactor;
+  const price = computePrice(kmRoad);
 
   await addDoc(collection(db, "trips"), {
     riderId,
     driverId: null,
-    pickup,
-    dropoff,
-    price: priceNum,
+
+    pickup: document.getElementById("pickupSearch")?.value?.trim() || "Pickup",
+    dropoff: document.getElementById("dropoffSearch")?.value?.trim() || "Dropoff",
+
+    pickupLat: pickupLatLng.lat,
+    pickupLng: pickupLatLng.lng,
+    dropoffLat: dropoffLatLng.lat,
+    dropoffLng: dropoffLatLng.lng,
+
+    kmEstimated: Number(kmRoad.toFixed(2)),
+    price,
+
     status: "pending",
     createdAt: serverTimestamp()
   });
@@ -349,6 +359,225 @@ function escapeHtml(str) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+// ================= Map + Search + Pricing (Rider) =================
+const PRICING = {
+  baseFare: 20,
+  ratePerKm: 8,
+  roadFactor: 1.3,
+  minFare: 35,
+  roundTo: 5
+};
+
+let map, pickupMarker, dropoffMarker;
+let pickupLatLng = null, dropoffLatLng = null;
+let selecting = "pickup"; // pickup | dropoff
+
+function initMapOnce() {
+  if (map) return;
+
+  const mapDiv = document.getElementById("map");
+  if (!mapDiv || typeof L === "undefined") return;
+
+  map = L.map("map").setView([30.0444, 31.2357], 12); // Cairo default
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap"
+  }).addTo(map);
+
+  map.on("click", (e) => {
+    if (selecting === "pickup") setPickup(e.latlng, "من الخريطة");
+    else setDropoff(e.latlng, "من الخريطة");
+  });
+
+  updatePickModeLabel();
+  updateMetrics();
+}
+
+function updatePickModeLabel() {
+  const el = document.getElementById("pickMode");
+  if (!el) return;
+  el.textContent = selecting === "pickup" ? "اختيار: Pickup" : "اختيار: Dropoff";
+}
+
+function setPickup(latlng, label = "") {
+  pickupLatLng = latlng;
+  selecting = "dropoff";
+  updatePickModeLabel();
+
+  if (!pickupMarker) pickupMarker = L.marker(latlng, { draggable: true }).addTo(map);
+  else pickupMarker.setLatLng(latlng);
+
+  pickupMarker.on("dragend", () => {
+    pickupLatLng = pickupMarker.getLatLng();
+    updateMetrics();
+  });
+
+  if (label) document.getElementById("pickupSearch") && (document.getElementById("pickupSearch").value = label);
+  map.setView(latlng, Math.max(map.getZoom(), 13));
+  updateMetrics();
+}
+
+function setDropoff(latlng, label = "") {
+  dropoffLatLng = latlng;
+  selecting = "pickup";
+  updatePickModeLabel();
+
+  if (!dropoffMarker) dropoffMarker = L.marker(latlng, { draggable: true }).addTo(map);
+  else dropoffMarker.setLatLng(latlng);
+
+  dropoffMarker.on("dragend", () => {
+    dropoffLatLng = dropoffMarker.getLatLng();
+    updateMetrics();
+  });
+
+  if (label) document.getElementById("dropoffSearch") && (document.getElementById("dropoffSearch").value = label);
+  map.setView(latlng, Math.max(map.getZoom(), 13));
+  updateMetrics();
+}
+
+function haversineKm(a, b) {
+  const R = 6371;
+  const toRad = (x) => (x * Math.PI) / 180;
+
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lng - a.lng);
+
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+function roundTo(x, step) {
+  return Math.round(x / step) * step;
+}
+
+function computePrice(kmRoad) {
+  const raw = PRICING.baseFare + kmRoad * PRICING.ratePerKm;
+  const withMin = Math.max(raw, PRICING.minFare);
+  return roundTo(withMin, PRICING.roundTo);
+}
+
+function updateMetrics() {
+  const el = document.getElementById("tripMetrics");
+  if (!el) return;
+
+  if (!pickupLatLng || !dropoffLatLng) {
+    el.textContent = "اختر نقطتين على الخريطة أو بالبحث.";
+    return;
+  }
+
+  const kmStraight = haversineKm(pickupLatLng, dropoffLatLng);
+  const kmRoad = kmStraight * PRICING.roadFactor;
+  const price = computePrice(kmRoad);
+
+  el.textContent =
+    `المسافة التقديرية: ${kmRoad.toFixed(1)} كم | السعر المقترح: ${price} جنيه`;
+}
+
+// ---------- Search (Nominatim) ----------
+function debounce(fn, ms) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
+async function nominatimSearch(q) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&accept-language=ar`;
+  const res = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!res.ok) throw new Error("Search failed");
+  return res.json();
+}
+
+function renderSuggestions(container, items, onPick) {
+  if (!container) return;
+  if (!items || items.length === 0) {
+    container.classList.add("hidden");
+    container.innerHTML = "";
+    return;
+  }
+  container.classList.remove("hidden");
+  container.innerHTML = items
+    .map((it, idx) => `
+      <button data-idx="${idx}" class="w-full text-right px-4 py-3 text-sm hover:bg-white/5 border-b border-white/10 last:border-b-0">
+        ${escapeHtml(it.display_name)}
+      </button>
+    `)
+    .join("");
+
+  container.querySelectorAll("button[data-idx]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.getAttribute("data-idx"));
+      onPick(items[idx]);
+      container.classList.add("hidden");
+      container.innerHTML = "";
+    });
+  });
+}
+
+const pickupSug = document.getElementById("pickupSug");
+const dropoffSug = document.getElementById("dropoffSug");
+
+const onPickupInput = debounce(async () => {
+  const q = document.getElementById("pickupSearch")?.value?.trim();
+  if (!q || q.length < 3) return renderSuggestions(pickupSug, [], () => {});
+  try {
+    const items = await nominatimSearch(q);
+    renderSuggestions(pickupSug, items, (it) => {
+      initMapOnce();
+      setPickup({ lat: Number(it.lat), lng: Number(it.lon) }, it.display_name);
+    });
+  } catch (e) {
+    console.error(e);
+  }
+}, 450);
+
+const onDropoffInput = debounce(async () => {
+  const q = document.getElementById("dropoffSearch")?.value?.trim();
+  if (!q || q.length < 3) return renderSuggestions(dropoffSug, [], () => {});
+  try {
+    const items = await nominatimSearch(q);
+    renderSuggestions(dropoffSug, items, (it) => {
+      initMapOnce();
+      setDropoff({ lat: Number(it.lat), lng: Number(it.lon) }, it.display_name);
+    });
+  } catch (e) {
+    console.error(e);
+  }
+}, 450);
+
+document.getElementById("pickupSearch")?.addEventListener("input", onPickupInput);
+document.getElementById("dropoffSearch")?.addEventListener("input", onDropoffInput);
+
+// Hide suggestions on outside click
+document.addEventListener("click", (e) => {
+  const pWrap = document.getElementById("pickupSearch");
+  const dWrap = document.getElementById("dropoffSearch");
+  if (pickupSug && pWrap && !pickupSug.contains(e.target) && e.target !== pWrap) pickupSug.classList.add("hidden");
+  if (dropoffSug && dWrap && !dropoffSug.contains(e.target) && e.target !== dWrap) dropoffSug.classList.add("hidden");
+});
+
+// My Location
+document.getElementById("useMyLocationBtn")?.addEventListener("click", async () => {
+  initMapOnce();
+  if (!navigator.geolocation) return showAlert("المتصفح لا يدعم تحديد الموقع.", "error");
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setPickup(latlng, "موقعي الحالي");
+      showAlert("تم تحديد موقعك كنقطة ركوب ✅", "success");
+    },
+    () => showAlert("لم نتمكن من الحصول على موقعك. تأكد من السماح بالـLocation.", "error"),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+});
 
 // ========== Rider Realtime: watch latest trip ==========
 let unsubscribeMyTrip = null;
