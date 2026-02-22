@@ -247,6 +247,15 @@
       class="hidden flex-1 rounded-2xl bg-white/10 hover:bg-white/15 ring-1 ring-white/10 font-semibold py-3">
       إلغاء الطلب
     </button>
+    <button id="requestCancelBtn"
+  class="hidden flex-1 rounded-2xl bg-amber-500/80 hover:bg-amber-500 text-black font-semibold py-3">
+  طلب إلغاء
+</button>
+
+<button id="confirmCompleteBtn"
+  class="hidden flex-1 rounded-2xl bg-emerald-500/90 hover:bg-emerald-500 text-white font-semibold py-3">
+  تأكيد إنهاء
+</button>
   </div>
 </div>
 
@@ -265,6 +274,26 @@
     <div id="tripsList" class="mt-3 grid gap-3"></div>
     <p class="mt-2 text-xs text-slate-400">ملاحظة: في المرحلة دي بنعرض طلبات pending بشكل مبسّط.</p>
   </div>
+
+  <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+  <p class="text-sm font-semibold">رحلتي الحالية (سائق)</p>
+  <div class="mt-2 text-xs text-slate-300" id="driverTripInfo">لا توجد رحلة حالية.</div>
+  <div class="mt-3 flex gap-2">
+    <button id="startTripBtn"
+      class="hidden flex-1 rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-semibold py-3">
+      بدأت الرحلة
+    </button>
+    <button id="approveCancelBtn"
+      class="hidden flex-1 rounded-2xl bg-amber-500/80 hover:bg-amber-500 text-black font-semibold py-3">
+      الموافقة على الإلغاء
+    </button>
+    <button id="completeTripBtn"
+      class="hidden flex-1 rounded-2xl bg-emerald-500/90 hover:bg-emerald-500 text-white font-semibold py-3">
+      إنهاء الرحلة
+    </button>
+  </div>
+</div>
+  
 </div>
 
           
