@@ -398,11 +398,6 @@ function renderMiniMap(mapId, trip) {
 
     const b = L.latLngBounds([p1, p2]);
     m.fitBounds(b.pad(0.25));
-
-    setTimeout(() => {
-  m.invalidateSize();
-  m.fitBounds(b.pad(0.25));
-}, 50);
     
     L.marker(p1).addTo(m);
     L.marker(p2).addTo(m);
