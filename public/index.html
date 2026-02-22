@@ -9,6 +9,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
 
   <meta name="color-scheme" content="dark light">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body class="min-h-screen bg-slate-950 text-slate-100">
@@ -198,12 +200,40 @@
   <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
     <p class="text-sm font-semibold">اطلب رحلة</p>
     <div class="mt-3 grid gap-3">
-      <input id="pickup" class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-             placeholder="مكان الانطلاق (مثال: دار السلام)" />
-      <input id="dropoff" class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-             placeholder="الوجهة (مثال: المعادي)" />
-      <input id="price" type="number" class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-             placeholder="السعر المقترح بالجنيه (مثال: 70)" />
+      <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+    <div class="relative">
+      <input id="pickupSearch"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="ابحث عن مكان الركوب (مثال: دار السلام)" autocomplete="off" />
+      <div id="pickupSug" class="absolute z-50 mt-2 hidden w-full rounded-2xl bg-slate-950 ring-1 ring-white/10 overflow-hidden"></div>
+    </div>
+    <button id="useMyLocationBtn"
+      class="rounded-2xl bg-white/10 hover:bg-white/15 ring-1 ring-white/10 font-semibold px-4 py-3 text-sm">
+      📍 موقعي الحالي
+    </button>
+  </div>
+
+  <!-- Dropoff Search -->
+  <div class="relative">
+    <input id="dropoffSearch"
+      class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+      placeholder="ابحث عن الوجهة (مثال: المعادي)" autocomplete="off" />
+    <div id="dropoffSug" class="absolute z-50 mt-2 hidden w-full rounded-2xl bg-slate-950 ring-1 ring-white/10 overflow-hidden"></div>
+  </div>
+
+  <!-- Map -->
+  <div class="rounded-2xl overflow-hidden ring-1 ring-white/10">
+    <div id="map" style="height: 320px;"></div>
+  </div>
+
+  <!-- Price + Distance -->
+  <div class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+    <div class="flex items-center justify-between">
+      <div class="text-sm font-semibold">الملخص</div>
+      <div class="text-xs text-slate-300" id="pickMode">اضغط لتحديد Pickup ثم Dropoff</div>
+    </div>
+    <div class="mt-2 text-xs text-slate-300" id="tripMetrics">اختر نقطتين على الخريطة أو بالبحث.</div>
+  </div>
       <button id="createTripBtn"
         class="w-full rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-semibold py-3">
         إرسال الطلب
