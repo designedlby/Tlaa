@@ -324,10 +324,11 @@ async function loadPendingTripsForDriver(driverId) {
         ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
       </div>
 
-      <div class="mt-1 text-xs text-slate-300 break-words">
-        السعر: <b>${t.price}</b> جنيه
-        ${t.kmEstimated ? ` | المسافة: <b>${t.kmEstimated}</b> كم` : ""}
-      </div>
+      <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300 break-words">
+  ${statusBadge(t.status || "pending")}
+  <span>السعر: <b>${t.price}</b> جنيه</span>
+  ${t.kmEstimated ? `<span>المسافة: <b>${t.kmEstimated}</b> كم</span>` : ""}
+</div>
     </div>
 
     <button data-trip="${id}"
@@ -407,6 +408,43 @@ function phoneForWhatsApp(phone) {
   if (p.startsWith("20")) return p;
 
   return p;
+}
+
+function statusBadge(status) {
+  const map = {
+    pending: {
+      label: "Pending",
+      cls: "inline-flex items-center gap-2 rounded-full bg-yellow-500/15 text-yellow-300 ring-1 ring-yellow-500/30 px-2 py-1"
+    },
+    accepted: {
+      label: "Accepted",
+      cls: "inline-flex items-center gap-2 rounded-full bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30 px-2 py-1"
+    },
+    cancel_requested: {
+      label: "Cancel Requested",
+      cls: "inline-flex items-center gap-2 rounded-full bg-orange-500/15 text-orange-300 ring-1 ring-orange-500/30 px-2 py-1"
+    },
+    cancelled: {
+      label: "Cancelled",
+      cls: "inline-flex items-center gap-2 rounded-full bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/30 px-2 py-1"
+    },
+    completed: {
+      label: "Completed",
+      cls: "inline-flex items-center gap-2 rounded-full bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/30 px-2 py-1"
+    }
+  };
+
+  const item = map[status] || {
+    label: status || "Unknown",
+    cls: "inline-flex items-center gap-2 rounded-full bg-slate-500/15 text-slate-300 ring-1 ring-slate-500/30 px-2 py-1"
+  };
+
+  return `
+    <span class="${item.cls}">
+      <span class="h-2 w-2 rounded-full bg-current inline-block"></span>
+      <span>${item.label}</span>
+    </span>
+  `;
 }
 
 async function saveProfile(uid) {
@@ -747,7 +785,14 @@ if (t.driverId) {
 }
 
 if (info) {
-  info.innerHTML = `الحالة: ${status} | ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}${priceTxt}${driverTxt}`;
+  info.innerHTML = `
+    <div class="flex flex-wrap items-center gap-2">
+      ${statusBadge(status)}
+      <span>${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}</span>
+      <span>${priceTxt}</span>
+    </div>
+    <div class="mt-2">${driverTxt}</div>
+  `;
 }
     
     // pending: الراكب يقدر يلغي فورًا (قبل ما السائق يقبل)
@@ -839,7 +884,15 @@ if (t.riderId) {
 }
 
 if (info) {
-  info.innerHTML = `الحالة: ${status} | ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}${kmTxt}${priceTxt}${riderTxt}`;
+  info.innerHTML = `
+    <div class="flex flex-wrap items-center gap-2">
+      ${statusBadge(status)}
+      <span>${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}</span>
+      <span>${kmTxt}</span>
+      <span>${priceTxt}</span>
+    </div>
+    <div class="mt-2">${riderTxt}</div>
+  `;
 }
     
     // أخفي الكل افتراضيًا
