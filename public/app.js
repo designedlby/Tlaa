@@ -291,6 +291,21 @@ async function loadPendingTripsForDriver(driverId) {
   if (!list) return;
 
   list.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل الطلبات...</div>`;
+  const driverRef = doc(db, "users", driverId);
+const driverSnap = await getDoc(driverRef);
+
+if (!driverSnap.exists()) {
+  list.innerHTML = `<div class="text-xs text-slate-400">تعذر العثور على بيانات السائق.</div>`;
+  return;
+}
+
+const driverData = driverSnap.data();
+const driverLocation = driverData.location;
+
+if (!driverLocation || !driverLocation.lat || !driverLocation.lng) {
+  list.innerHTML = `<div class="text-xs text-slate-400">حدّث موقعك أولًا لعرض الرحلات القريبة منك.</div>`;
+  return;
+}
 
   // ⚠️ للـMVP: هنجيب آخر 20 رحلة pending
   const q = query(
@@ -302,16 +317,42 @@ async function loadPendingTripsForDriver(driverId) {
 
   const snap = await getDocs(q);
 
-  if (snap.empty) {
-    list.innerHTML = `<div class="text-xs text-slate-400">مفيش طلبات حالياً.</div>`;
-    return;
+if (snap.empty) {
+  list.innerHTML = `<div class="text-xs text-slate-400">مفيش طلبات حالياً.</div>`;
+  return;
+}
+
+list.innerHTML = "";
+
+const nearbyTrips = [];
+
+snap.forEach((docSnap) => {
+  const t = docSnap.data();
+
+  if (t.pickupLat && t.pickupLng) {
+    const kmFromDriver = distanceKm(
+      { lat: driverLocation.lat, lng: driverLocation.lng },
+      { lat: t.pickupLat, lng: t.pickupLng }
+    );
+
+    if (kmFromDriver <= 8) {
+      nearbyTrips.push({
+        id: docSnap.id,
+        ...t,
+        kmFromDriver: Number(kmFromDriver.toFixed(1))
+      });
+    }
   }
+});
 
-  list.innerHTML = "";
+if (nearbyTrips.length === 0) {
+  list.innerHTML = `<div class="text-xs text-slate-400">لا توجد رحلات قريبة منك حاليًا.</div>`;
+  return;
+}
 
-  snap.forEach((docSnap) => {
-    const t = docSnap.data();
-    const id = docSnap.id;
+nearbyTrips.forEach((t) => {
+  const id = t.id;
+  
 
     const card = document.createElement("div");
     card.className = "rounded-2xl bg-white/5 ring-1 ring-white/10 p-4";
@@ -327,7 +368,8 @@ async function loadPendingTripsForDriver(driverId) {
       <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300 break-words">
   ${statusBadge(t.status || "pending")}
   <span>السعر: <b>${t.price}</b> جنيه</span>
-  ${t.kmEstimated ? `<span>المسافة: <b>${t.kmEstimated}</b> كم</span>` : ""}
+  ${t.kmEstimated ? `<span>المسافة التقديرية: <b>${t.kmEstimated}</b> كم</span>` : ""}
+  ${t.kmFromDriver ? `<span>يبعد عنك: <b>${t.kmFromDriver}</b> كم</span>` : ""}
 </div>
     </div>
 
@@ -469,6 +511,50 @@ async function saveProfile(uid) {
   if (statusEl) statusEl.textContent = "تم حفظ البيانات ✅";
 }
 
+async function updateDriverLocation(uid) {
+  const statusEl = document.getElementById("driverLocationStatus");
+
+  if (!navigator.geolocation) {
+    if (statusEl) statusEl.textContent = "المتصفح لا يدعم تحديد الموقع.";
+    return;
+  }
+
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+
+          await setDoc(doc(db, "users", uid), {
+            location: {
+              lat,
+              lng,
+              updatedAt: new Date().toISOString()
+            }
+          }, { merge: true });
+
+          if (statusEl) {
+            statusEl.textContent = `تم تحديث موقعك ✅ (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+          }
+
+          resolve({ lat, lng });
+        } catch (e) {
+          console.error(e);
+          if (statusEl) statusEl.textContent = "فشل حفظ موقع السائق.";
+          reject(e);
+        }
+      },
+      (err) => {
+        console.error(err);
+        if (statusEl) statusEl.textContent = "لم نتمكن من تحديد موقع السائق. تأكد من السماح بالـLocation.";
+        reject(err);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+}
+
 function renderMiniMap(mapId, trip) {
   try {
     if (typeof L === "undefined") return;
@@ -601,6 +687,23 @@ function haversineKm(a, b) {
 
 function roundTo(x, step) {
   return Math.round(x / step) * step;
+}
+
+function distanceKm(a, b) {
+  const R = 6371;
+  const toRad = (x) => (x * Math.PI) / 180;
+
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lng - a.lng);
+
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+
+  return 2 * R * Math.asin(Math.sqrt(s));
 }
 
 function computePrice(kmRoad) {
@@ -1032,5 +1135,19 @@ document.getElementById("saveProfileBtn")?.addEventListener("click", async () =>
   } catch (e) {
     console.error(e);
     showAlert("فشل حفظ البيانات.", "error");
+  }
+});
+
+document.getElementById("updateDriverLocationBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    await updateDriverLocation(user.uid);
+    await loadPendingTripsForDriver(user.uid);
+    showAlert("تم تحديث موقع السائق ✅", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل تحديث موقع السائق.", "error");
   }
 });
