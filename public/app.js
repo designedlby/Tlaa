@@ -361,9 +361,9 @@ nearbyTrips.forEach((t) => {
   <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
 
     <div class="min-w-0">
-      <div class="text-sm font-semibold break-words">
-        ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
-      </div>
+      <div class="text-sm font-semibold break-all">
+  ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
+</div>
 
       <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300 break-words">
   ${statusBadge(t.status || "pending")}
@@ -712,6 +712,38 @@ function computePrice(kmRoad) {
   return roundTo(withMin, PRICING.roundTo);
 }
 
+function openMapsHelperModal(target) {
+  currentMapsTarget = target;
+
+  const modal = document.getElementById("mapsHelperModal");
+  const title = document.getElementById("mapsHelperTitle");
+  const input = document.getElementById("mapsHelperInput");
+
+  if (title) {
+    title.textContent = target === "pickup"
+      ? "تحديد مكان الركوب من Google Maps"
+      : "تحديد الوجهة من Google Maps";
+  }
+
+  // املأ المودال بالقيمة الحالية لو موجودة
+  if (input) {
+    if (target === "pickup") {
+      input.value = document.getElementById("pickupMapsInput")?.value || "";
+    } else {
+      input.value = document.getElementById("dropoffMapsInput")?.value || "";
+    }
+  }
+
+  modal?.classList.remove("hidden");
+  modal?.classList.add("flex");
+}
+
+function closeMapsHelperModal() {
+  const modal = document.getElementById("mapsHelperModal");
+  modal?.classList.add("hidden");
+  modal?.classList.remove("flex");
+}
+
 function parseLatLngFromText(text) {
   const raw = String(text || "").trim();
 
@@ -737,6 +769,12 @@ function parseLatLngFromText(text) {
 
   return null;
 }
+
+function formatLatLngLabel(latlng) {
+  return `${Number(latlng.lat).toFixed(6)}, ${Number(latlng.lng).toFixed(6)}`;
+}
+
+let currentMapsTarget = "pickup"; // pickup | dropoff
 
 function updateMetrics() {
   const el = document.getElementById("tripMetrics");
@@ -917,10 +955,10 @@ if (info) {
   info.innerHTML = `
     <div class="flex flex-wrap items-center gap-2">
       ${statusBadge(status)}
-      <span>${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}</span>
+      <span class="break-all">${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}</span>
       <span>${priceTxt}</span>
     </div>
-    <div class="mt-2">${driverTxt}</div>
+    <div class="mt-2 break-all">${driverTxt}</div>
   `;
 }
     
@@ -1016,11 +1054,11 @@ if (info) {
   info.innerHTML = `
     <div class="flex flex-wrap items-center gap-2">
       ${statusBadge(status)}
-      <span>${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}</span>
+      <span class="break-all">${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}</span>
       <span>${kmTxt}</span>
       <span>${priceTxt}</span>
     </div>
-    <div class="mt-2">${riderTxt}</div>
+    <div class="mt-2 break-all">${riderTxt}</div>
   `;
 }
     
@@ -1179,11 +1217,11 @@ document.getElementById("updateDriverLocationBtn")?.addEventListener("click", as
 });
 
 document.getElementById("openPickupMapsBtn")?.addEventListener("click", () => {
-  window.open("https://www.google.com/maps", "_blank");
+  openMapsHelperModal("pickup");
 });
 
 document.getElementById("openDropoffMapsBtn")?.addEventListener("click", () => {
-  window.open("https://www.google.com/maps", "_blank");
+  openMapsHelperModal("dropoff");
 });
 
 document.getElementById("applyPickupMapsBtn")?.addEventListener("click", () => {
@@ -1212,4 +1250,57 @@ document.getElementById("applyDropoffMapsBtn")?.addEventListener("click", () => 
   initMapOnce();
   setDropoff(parsed, raw);
   showAlert("تم تحديد الوجهة من Google Maps ✅", "success");
+});
+
+document.getElementById("closeMapsHelperBtn")?.addEventListener("click", () => {
+  closeMapsHelperModal();
+});
+
+document.getElementById("openGoogleMapsNowBtn")?.addEventListener("click", () => {
+  // best-effort popup; Chrome قد يفتحها tab عادي
+  window.open(
+    "https://www.google.com/maps",
+    "_blank",
+    "popup=yes,width=520,height=760"
+  );
+});
+
+document.getElementById("pasteMapsClipboardBtn")?.addEventListener("click", async () => {
+  try {
+    const txt = await navigator.clipboard.readText();
+    const input = document.getElementById("mapsHelperInput");
+    if (input) input.value = txt || "";
+  } catch (e) {
+    console.error(e);
+    showAlert("تعذر القراءة من الحافظة. الصق يدويًا.", "error");
+  }
+});
+
+document.getElementById("applyMapsHelperBtn")?.addEventListener("click", () => {
+  const raw = document.getElementById("mapsHelperInput")?.value?.trim();
+  const parsed = parseLatLngFromText(raw);
+
+  if (!parsed) {
+    showAlert("تعذر قراءة الموقع. الصق لينك Google Maps أو lat,lng.", "error");
+    return;
+  }
+
+  initMapOnce();
+
+  const shortLabel = formatLatLngLabel(parsed);
+
+  if (currentMapsTarget === "pickup") {
+    setPickup(parsed, shortLabel);
+
+    const input = document.getElementById("pickupMapsInput");
+    if (input) input.value = shortLabel;
+  } else {
+    setDropoff(parsed, shortLabel);
+
+    const input = document.getElementById("dropoffMapsInput");
+    if (input) input.value = shortLabel;
+  }
+
+  closeMapsHelperModal();
+  showAlert("تم تطبيق الموقع من Google Maps ✅", "success");
 });
