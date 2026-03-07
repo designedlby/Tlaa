@@ -287,12 +287,26 @@
 <!-- Driver: Pending Trips -->
 <div id="driverBox" class="mt-4 hidden">
   <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
-    <div class="flex items-center justify-between">
-      <p class="text-sm font-semibold">طلبات متاحة</p>
-      <button id="refreshTripsBtn" class="text-xs text-slate-300 hover:text-white underline underline-offset-4">تحديث</button>
-    </div>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+  <p class="text-sm font-semibold">طلبات متاحة</p>
+
+  <div class="flex gap-2">
+    <button id="updateDriverLocationBtn"
+      class="text-xs rounded-xl bg-white/10 hover:bg-white/15 ring-1 ring-white/10 px-3 py-2 text-slate-200">
+      📍 تحديث موقعي
+    </button>
+
+    <button id="refreshTripsBtn"
+      class="text-xs text-slate-300 hover:text-white underline underline-offset-4">
+      تحديث
+    </button>
+  </div>
+</div>
 
     <div id="tripsList" class="mt-3 grid gap-3"></div>
+    <p id="driverLocationStatus" class="mt-2 text-xs text-slate-400">
+  لم يتم تحديد موقع السائق بعد.
+</p>
     <p class="mt-2 text-xs text-slate-400">ملاحظة: في المرحلة دي بنعرض طلبات pending بشكل مبسّط.</p>
   </div>
 
