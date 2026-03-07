@@ -712,6 +712,32 @@ function computePrice(kmRoad) {
   return roundTo(withMin, PRICING.roundTo);
 }
 
+function parseLatLngFromText(text) {
+  const raw = String(text || "").trim();
+
+  if (!raw) return null;
+
+  // صيغة مباشرة: lat,lng
+  let m = raw.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+  if (m) {
+    return { lat: Number(m[1]), lng: Number(m[2]) };
+  }
+
+  // صيغة جوجل مابس: .../@lat,lng,...
+  m = raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) {
+    return { lat: Number(m[1]), lng: Number(m[2]) };
+  }
+
+  // صيغة q=lat,lng
+  m = raw.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) {
+    return { lat: Number(m[1]), lng: Number(m[2]) };
+  }
+
+  return null;
+}
+
 function updateMetrics() {
   const el = document.getElementById("tripMetrics");
   if (!el) return;
@@ -1150,4 +1176,40 @@ document.getElementById("updateDriverLocationBtn")?.addEventListener("click", as
     console.error(e);
     showAlert("فشل تحديث موقع السائق.", "error");
   }
+});
+
+document.getElementById("openPickupMapsBtn")?.addEventListener("click", () => {
+  window.open("https://www.google.com/maps", "_blank");
+});
+
+document.getElementById("openDropoffMapsBtn")?.addEventListener("click", () => {
+  window.open("https://www.google.com/maps", "_blank");
+});
+
+document.getElementById("applyPickupMapsBtn")?.addEventListener("click", () => {
+  const raw = document.getElementById("pickupMapsInput")?.value?.trim();
+  const parsed = parseLatLngFromText(raw);
+
+  if (!parsed) {
+    showAlert("تعذر قراءة الموقع. الصق لينك Google Maps أو lat,lng.", "error");
+    return;
+  }
+
+  initMapOnce();
+  setPickup(parsed, raw);
+  showAlert("تم تحديد مكان الركوب من Google Maps ✅", "success");
+});
+
+document.getElementById("applyDropoffMapsBtn")?.addEventListener("click", () => {
+  const raw = document.getElementById("dropoffMapsInput")?.value?.trim();
+  const parsed = parseLatLngFromText(raw);
+
+  if (!parsed) {
+    showAlert("تعذر قراءة الموقع. الصق لينك Google Maps أو lat,lng.", "error");
+    return;
+  }
+
+  initMapOnce();
+  setDropoff(parsed, raw);
+  showAlert("تم تحديد الوجهة من Google Maps ✅", "success");
 });
