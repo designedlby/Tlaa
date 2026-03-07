@@ -212,6 +212,20 @@ onAuthStateChanged(auth, async (user) => {
     roleLabel.textContent = profile.role || "rider";
     uidLabel.textContent = user.uid;
 
+const profileBox = document.getElementById("profileBox");
+const profileName = document.getElementById("profileName");
+const profilePhone = document.getElementById("profilePhone");
+
+// إظهار صندوق البيانات لو ناقص اسم أو موبايل
+if (!profile.name || !profile.phone) {
+  profileBox?.classList.remove("hidden");
+} else {
+  profileBox?.classList.add("hidden");
+}
+
+if (profileName) profileName.value = profile.name || "";
+if (profilePhone) profilePhone.value = profile.phone || "";
+    
     // اخفي فورمات الدخول/التسجيل واظهر صندوق المستخدم
     signupPanel.classList.add("hidden");
     loginPanel.classList.add("hidden");
@@ -379,6 +393,42 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function normalizePhone(phone) {
+  return String(phone || "").replace(/\s+/g, "").replace(/[^\d+]/g, "");
+}
+
+function phoneForWhatsApp(phone) {
+  const p = normalizePhone(phone);
+
+  if (p.startsWith("+")) return p.replace("+", "");
+  if (p.startsWith("0")) return "2" + p; // مصر
+  if (p.startsWith("20")) return p;
+
+  return p;
+}
+
+async function saveProfile(uid) {
+  const nameInput = document.getElementById("profileName");
+  const phoneInput = document.getElementById("profilePhone");
+  const statusEl = document.getElementById("profileStatus");
+
+  const name = nameInput?.value?.trim();
+  const phone = phoneInput?.value?.trim();
+
+  if (!name || !phone) {
+    if (statusEl) statusEl.textContent = "اكتب الاسم ورقم الموبايل.";
+    return;
+  }
+
+  await setDoc(doc(db, "users", uid), {
+    name,
+    phone,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  if (statusEl) statusEl.textContent = "تم حفظ البيانات ✅";
 }
 
 function renderMiniMap(mapId, trip) {
@@ -655,7 +705,7 @@ function watchMyLatestTrip(riderId) {
     limit(1)
   );
 
-  unsubscribeMyTrip = onSnapshot(q, (snap) => {
+  unsubscribeMyTrip = onSnapshot(q, async (snap) => {
     if (snap.empty) {
       if (info) info.textContent = "لا يوجد طلب حاليًا.";
       cancelBtn?.classList.add("hidden");
@@ -667,13 +717,39 @@ function watchMyLatestTrip(riderId) {
     const t = docSnap.data();
 
     const status = t.status || "pending";
-    const driverTxt = t.driverId ? ` | سائق: ${t.driverId}` : "";
     const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
 
-    if (info) {
-      info.textContent = `الحالة: ${status} | ${t.pickup} → ${t.dropoff}${priceTxt}${driverTxt}`;
-    }
+let driverTxt = "";
+if (t.driverId) {
+  try {
+    const driverRef = doc(db, "users", t.driverId);
+    const driverSnap = await getDoc(driverRef);
 
+    if (driverSnap.exists()) {
+      const d = driverSnap.data();
+      const name = d.name ? escapeHtml(d.name) : "سائق";
+      const phone = d.phone ? normalizePhone(d.phone) : "";
+      const waPhone = d.phone ? phoneForWhatsApp(d.phone) : "";
+
+      driverTxt = ` | السائق: ${name}`;
+
+      if (phone) {
+        driverTxt += ` | 📞 <a class="underline text-emerald-300" href="tel:${phone}">${phone}</a>`;
+        driverTxt += ` | <a class="underline text-green-300" target="_blank" href="https://wa.me/${waPhone}">واتساب</a>`;
+      }
+    } else {
+      driverTxt = ` | سائق: ${t.driverId}`;
+    }
+  } catch (e) {
+    console.error(e);
+    driverTxt = ` | سائق: ${t.driverId}`;
+  }
+}
+
+if (info) {
+  info.innerHTML = `الحالة: ${status} | ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}${priceTxt}${driverTxt}`;
+}
+    
     // pending: الراكب يقدر يلغي فورًا (قبل ما السائق يقبل)
 if (status === "pending") {
   cancelBtn?.classList.remove("hidden");
@@ -718,7 +794,7 @@ function watchDriverCurrentTrip(driverId) {
     limit(1)
   );
 
-  unsubscribeDriverTrip = onSnapshot(q, (snap) => {
+  unsubscribeDriverTrip = onSnapshot(q, async (snap) => {
     if (snap.empty) {
       if (info) info.textContent = "لا توجد رحلة حالية.";
       approveBtn?.classList.add("hidden");
@@ -732,14 +808,40 @@ function watchDriverCurrentTrip(driverId) {
     const tripId = docSnap.id;
 
     const status = t.status || "accepted";
-    const riderTxt = t.riderId ? ` | Rider: ${t.riderId}` : "";
     const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
-    const kmTxt = t.kmEstimated ? ` | ${t.kmEstimated} كم` : "";
+const kmTxt = t.kmEstimated ? ` | ${t.kmEstimated} كم` : "";
 
-    if (info) {
-      info.textContent = `الحالة: ${status} | ${t.pickup} → ${t.dropoff}${kmTxt}${priceTxt}${riderTxt}`;
+let riderTxt = "";
+if (t.riderId) {
+  try {
+    const riderRef = doc(db, "users", t.riderId);
+    const riderSnap = await getDoc(riderRef);
+
+    if (riderSnap.exists()) {
+      const r = riderSnap.data();
+      const name = r.name ? escapeHtml(r.name) : "راكب";
+      const phone = r.phone ? normalizePhone(r.phone) : "";
+      const waPhone = r.phone ? phoneForWhatsApp(r.phone) : "";
+
+      riderTxt = ` | الراكب: ${name}`;
+
+      if (phone) {
+        riderTxt += ` | 📞 <a class="underline text-emerald-300" href="tel:${phone}">${phone}</a>`;
+        riderTxt += ` | <a class="underline text-green-300" target="_blank" href="https://wa.me/${waPhone}">واتساب</a>`;
+      }
+    } else {
+      riderTxt = ` | Rider: ${t.riderId}`;
     }
+  } catch (e) {
+    console.error(e);
+    riderTxt = ` | Rider: ${t.riderId}`;
+  }
+}
 
+if (info) {
+  info.innerHTML = `الحالة: ${status} | ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}${kmTxt}${priceTxt}${riderTxt}`;
+}
+    
     // أخفي الكل افتراضيًا
     approveBtn?.classList.add("hidden");
     completeBtn?.classList.add("hidden");
@@ -864,5 +966,18 @@ document.getElementById("completeTripBtn")?.addEventListener("click", async () =
   } catch (e) {
     console.error(e);
     showAlert("فشل إنهاء الرحلة.", "error");
+  }
+});
+
+document.getElementById("saveProfileBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    await saveProfile(user.uid);
+    showAlert("تم حفظ البيانات ✅", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل حفظ البيانات.", "error");
   }
 });
