@@ -219,15 +219,42 @@ const driverCarFields = document.getElementById("driverCarFields");
 const carPlate = document.getElementById("carPlate");
 const carModel = document.getElementById("carModel");
 const carColor = document.getElementById("carColor");
-    
+const driverPrivateFields = document.getElementById("driverPrivateFields");
+
+const nationalId = document.getElementById("nationalId");
+const nationalIdExpiry = document.getElementById("nationalIdExpiry");
+const driverLicenseNumber = document.getElementById("driverLicenseNumber");
+const driverLicenseExpiry = document.getElementById("driverLicenseExpiry");
+const vehicleLicenseNumber = document.getElementById("vehicleLicenseNumber");
+const vehicleLicenseExpiry = document.getElementById("vehicleLicenseExpiry");    
 // إظهار صندوق البيانات لو ناقص اسم أو موبايل
 const isDriver = (profile.role || "rider") === "driver";
+
+// اقرأ البيانات الخاصة لو السائق
+let privateData = null;
+if (isDriver) {
+  try {
+    privateData = await getPrivateDriverData(user.uid);
+  } catch (e) {
+    console.error(e);
+  }
+}
 
 const missingBasic = !profile.name || !profile.phone;
 const missingDriverCar =
   isDriver && (!profile.carPlate || !profile.carModel || !profile.carColor);
 
-if (missingBasic || missingDriverCar) {
+const missingDriverPrivate =
+  isDriver && (
+    !privateData?.nationalId ||
+    !privateData?.nationalIdExpiry ||
+    !privateData?.driverLicenseNumber ||
+    !privateData?.driverLicenseExpiry ||
+    !privateData?.vehicleLicenseNumber ||
+    !privateData?.vehicleLicenseExpiry
+  );
+
+if (missingBasic || missingDriverCar || missingDriverPrivate) {
   profileBox?.classList.remove("hidden");
 } else {
   profileBox?.classList.add("hidden");
@@ -238,13 +265,22 @@ if (profilePhone) profilePhone.value = profile.phone || "";
 
 if (isDriver) {
   driverCarFields?.classList.remove("hidden");
+  driverPrivateFields?.classList.remove("hidden");
 } else {
   driverCarFields?.classList.add("hidden");
+  driverPrivateFields?.classList.add("hidden");
 }
 
 if (carPlate) carPlate.value = profile.carPlate || "";
 if (carModel) carModel.value = profile.carModel || "";
 if (carColor) carColor.value = profile.carColor || "";
+
+if (nationalId) nationalId.value = privateData?.nationalId || "";
+if (nationalIdExpiry) nationalIdExpiry.value = privateData?.nationalIdExpiry || "";
+if (driverLicenseNumber) driverLicenseNumber.value = privateData?.driverLicenseNumber || "";
+if (driverLicenseExpiry) driverLicenseExpiry.value = privateData?.driverLicenseExpiry || "";
+if (vehicleLicenseNumber) vehicleLicenseNumber.value = privateData?.vehicleLicenseNumber || "";
+if (vehicleLicenseExpiry) vehicleLicenseExpiry.value = privateData?.vehicleLicenseExpiry || "";
     
     // اخفي فورمات الدخول/التسجيل واظهر صندوق المستخدم
     signupPanel.classList.add("hidden");
@@ -543,6 +579,35 @@ async function saveProfile(uid) {
   await setDoc(doc(db, "users", uid), payload, { merge: true });
 
   if (statusEl) statusEl.textContent = "تم حفظ البيانات ✅";
+}
+
+async function savePrivateDriverData(uid) {
+  const nationalId = document.getElementById("nationalId")?.value?.trim() || "";
+  const nationalIdExpiry = document.getElementById("nationalIdExpiry")?.value || "";
+
+  const driverLicenseNumber = document.getElementById("driverLicenseNumber")?.value?.trim() || "";
+  const driverLicenseExpiry = document.getElementById("driverLicenseExpiry")?.value || "";
+
+  const vehicleLicenseNumber = document.getElementById("vehicleLicenseNumber")?.value?.trim() || "";
+  const vehicleLicenseExpiry = document.getElementById("vehicleLicenseExpiry")?.value || "";
+
+  await setDoc(doc(db, "users_private", uid), {
+    nationalId,
+    nationalIdExpiry,
+    driverLicenseNumber,
+    driverLicenseExpiry,
+    vehicleLicenseNumber,
+    vehicleLicenseExpiry,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+async function getPrivateDriverData(uid) {
+  const ref = doc(db, "users_private", uid);
+  const snap = await getDoc(ref);
+
+  if (!snap.exists()) return null;
+  return snap.data();
 }
 
 async function updateDriverLocation(uid) {
@@ -1239,12 +1304,18 @@ document.getElementById("saveProfileBtn")?.addEventListener("click", async () =>
 
   try {
     await saveProfile(user.uid);
+
+    const role = document.getElementById("roleLabel")?.textContent?.trim() || "rider";
+    if (role === "driver") {
+      await savePrivateDriverData(user.uid);
+    }
+
     showAlert("تم حفظ البيانات ✅", "success");
   } catch (e) {
     console.error(e);
     showAlert("فشل حفظ البيانات.", "error");
   }
-});
+}); 
 
 document.getElementById("updateDriverLocationBtn")?.addEventListener("click", async () => {
   const user = auth.currentUser;
