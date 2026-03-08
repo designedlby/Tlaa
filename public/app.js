@@ -215,9 +215,19 @@ onAuthStateChanged(auth, async (user) => {
 const profileBox = document.getElementById("profileBox");
 const profileName = document.getElementById("profileName");
 const profilePhone = document.getElementById("profilePhone");
-
+const driverCarFields = document.getElementById("driverCarFields");
+const carPlate = document.getElementById("carPlate");
+const carModel = document.getElementById("carModel");
+const carColor = document.getElementById("carColor");
+    
 // إظهار صندوق البيانات لو ناقص اسم أو موبايل
-if (!profile.name || !profile.phone) {
+const isDriver = (profile.role || "rider") === "driver";
+
+const missingBasic = !profile.name || !profile.phone;
+const missingDriverCar =
+  isDriver && (!profile.carPlate || !profile.carModel || !profile.carColor);
+
+if (missingBasic || missingDriverCar) {
   profileBox?.classList.remove("hidden");
 } else {
   profileBox?.classList.add("hidden");
@@ -225,6 +235,16 @@ if (!profile.name || !profile.phone) {
 
 if (profileName) profileName.value = profile.name || "";
 if (profilePhone) profilePhone.value = profile.phone || "";
+
+if (isDriver) {
+  driverCarFields?.classList.remove("hidden");
+} else {
+  driverCarFields?.classList.add("hidden");
+}
+
+if (carPlate) carPlate.value = profile.carPlate || "";
+if (carModel) carModel.value = profile.carModel || "";
+if (carColor) carColor.value = profile.carColor || "";
     
     // اخفي فورمات الدخول/التسجيل واظهر صندوق المستخدم
     signupPanel.classList.add("hidden");
@@ -493,20 +513,34 @@ async function saveProfile(uid) {
   const nameInput = document.getElementById("profileName");
   const phoneInput = document.getElementById("profilePhone");
   const statusEl = document.getElementById("profileStatus");
+  const roleEl = document.getElementById("roleLabel");
+
+  const carPlateInput = document.getElementById("carPlate");
+  const carModelInput = document.getElementById("carModel");
+  const carColorInput = document.getElementById("carColor");
 
   const name = nameInput?.value?.trim();
   const phone = phoneInput?.value?.trim();
+  const role = roleEl?.textContent?.trim() || "rider";
 
   if (!name || !phone) {
     if (statusEl) statusEl.textContent = "اكتب الاسم ورقم الموبايل.";
     return;
   }
 
-  await setDoc(doc(db, "users", uid), {
+  const payload = {
     name,
     phone,
     updatedAt: serverTimestamp()
-  }, { merge: true });
+  };
+
+  if (role === "driver") {
+    payload.carPlate = carPlateInput?.value?.trim() || "";
+    payload.carModel = carModelInput?.value?.trim() || "";
+    payload.carColor = carColorInput?.value?.trim() || "";
+  }
+
+  await setDoc(doc(db, "users", uid), payload, { merge: true });
 
   if (statusEl) statusEl.textContent = "تم حفظ البيانات ✅";
 }
@@ -931,18 +965,28 @@ if (t.driverId) {
     const driverSnap = await getDoc(driverRef);
 
     if (driverSnap.exists()) {
-      const d = driverSnap.data();
-      const name = d.name ? escapeHtml(d.name) : "سائق";
-      const phone = d.phone ? normalizePhone(d.phone) : "";
-      const waPhone = d.phone ? phoneForWhatsApp(d.phone) : "";
+  const d = driverSnap.data();
+  const name = d.name ? escapeHtml(d.name) : "سائق";
+  const phone = d.phone ? normalizePhone(d.phone) : "";
+  const waPhone = d.phone ? phoneForWhatsApp(d.phone) : "";
 
-      driverTxt = ` | السائق: ${name}`;
+  const carPlate = d.carPlate ? escapeHtml(d.carPlate) : "";
+  const carModel = d.carModel ? escapeHtml(d.carModel) : "";
+  const carColor = d.carColor ? escapeHtml(d.carColor) : "";
 
-      if (phone) {
-        driverTxt += ` | 📞 <a class="underline text-emerald-300" href="tel:${phone}">${phone}</a>`;
-        driverTxt += ` | <a class="underline text-green-300" target="_blank" href="https://wa.me/${waPhone}">واتساب</a>`;
-      }
-    } else {
+  driverTxt = ` | السائق: ${name}`;
+
+  if (phone) {
+    driverTxt += ` | 📞 <a class="underline text-emerald-300" href="tel:${phone}">${phone}</a>`;
+    driverTxt += ` | <a class="underline text-green-300" target="_blank" href="https://wa.me/${waPhone}">واتساب</a>`;
+  }
+
+  if (carPlate || carModel || carColor) {
+    driverTxt += ` | 🚐 ${carModel}`;
+    if (carColor) driverTxt += ` - ${carColor}`;
+    if (carPlate) driverTxt += ` - ${carPlate}`;
+  }
+} else {
       driverTxt = ` | سائق: ${t.driverId}`;
     }
   } catch (e) {
