@@ -1525,3 +1525,83 @@ document.getElementById("editProfileBtn")?.addEventListener("click", () => {
 
   box.classList.toggle("hidden");
 });
+
+// ===============================
+// Driver Verification System
+// ===============================
+
+// فتح Google Drive
+const driveUrl = "https://drive.google.com";
+
+["openDriveBtn1","openDriveBtn2","openDriveBtn3","openDriveBtn4","openDriveBtn5","openDriveBtn6"]
+.forEach(id=>{
+  const btn=document.getElementById(id);
+  if(btn){
+    btn.addEventListener("click",()=>{
+      window.open(driveUrl,"_blank");
+    });
+  }
+});
+
+
+// زر إرسال المستندات
+document.getElementById("submitVerificationBtn")?.addEventListener("click", async ()=>{
+
+  const user=getAuth().currentUser;
+
+  if(!user){
+    showAlert("يجب تسجيل الدخول أولاً","error");
+    return;
+  }
+
+  const nationalId=document.getElementById("nationalIdUrl")?.value.trim();
+  const driverLicense=document.getElementById("driverLicenseUrl")?.value.trim();
+  const vehicleLicense=document.getElementById("vehicleLicenseUrl")?.value.trim();
+  const selfie=document.getElementById("selfieUrl")?.value.trim();
+  const carOutside=document.getElementById("carOutsideUrl")?.value.trim();
+  const carInside=document.getElementById("carInsideUrl")?.value.trim();
+
+  const statusBox=document.getElementById("verificationStatus");
+
+  // تحقق بسيط من الروابط
+  const urls=[nationalId,driverLicense,vehicleLicense,selfie,carOutside,carInside];
+
+  for(const url of urls){
+    if(!url.includes("drive.google.com")){
+      if(statusBox) statusBox.textContent="يرجى إدخال روابط Google Drive صحيحة.";
+      return;
+    }
+  }
+
+  try{
+
+    const ref=doc(db,"users_private",user.uid);
+
+    await setDoc(ref,{
+      nationalIdImage:nationalId,
+      driverLicenseImage:driverLicense,
+      vehicleLicenseImage:vehicleLicense,
+      selfieImage:selfie,
+      carOutsideImage:carOutside,
+      carInsideImage:carInside,
+
+      verificationStatus:"pending",
+      submittedAt:serverTimestamp()
+
+    },{merge:true});
+
+    if(statusBox){
+      statusBox.textContent="تم إرسال المستندات للمراجعة.";
+    }
+
+  }catch(e){
+
+    console.error(e);
+
+    if(statusBox){
+      statusBox.textContent="حدث خطأ أثناء إرسال المستندات.";
+    }
+
+  }
+
+});
