@@ -405,6 +405,112 @@
 </div>
 
     <div id="tripsList" class="mt-3 grid gap-3"></div>
+    <!-- Driver Verification -->
+<div class="mt-6 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+
+<p class="text-sm font-semibold">توثيق حساب السائق</p>
+
+<p class="mt-2 text-xs text-slate-300">
+لكي تتمكن من قبول الرحلات يجب توثيق الحساب بالصور.
+اتبع الخطوات التالية من الموبايل.
+</p>
+
+<div class="mt-4 grid gap-3">
+
+<!-- National ID -->
+<div class="verification-card">
+<p class="text-xs font-semibold">رابط صورة البطاقة الشخصية</p>
+
+<button id="openDriveBtn1"
+class="mt-1 text-xs underline text-slate-300 hover:text-white">
+فتح Google Drive
+</button>
+
+<input id="nationalIdUrl"
+class="w-full mt-2 rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
+placeholder="الصق رابط الصورة هنا"/>
+</div>
+
+<!-- Driver License -->
+<div class="verification-card">
+<p class="text-xs font-semibold">رابط رخصة القيادة</p>
+
+<button id="openDriveBtn2"
+class="mt-1 text-xs underline text-slate-300 hover:text-white">
+فتح Google Drive
+</button>
+
+<input id="driverLicenseUrl"
+class="w-full mt-2 rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
+placeholder="الصق رابط الصورة هنا"/>
+</div>
+
+<!-- Vehicle License -->
+<div class="verification-card">
+<p class="text-xs font-semibold">رابط رخصة السيارة</p>
+
+<button id="openDriveBtn3"
+class="mt-1 text-xs underline text-slate-300 hover:text-white">
+فتح Google Drive
+</button>
+
+<input id="vehicleLicenseUrl"
+class="w-full mt-2 rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
+placeholder="الصق رابط الصورة هنا"/>
+</div>
+
+<!-- Selfie -->
+<div class="verification-card">
+<p class="text-xs font-semibold">رابط سيلفي مع البطاقة</p>
+
+<button id="openDriveBtn4"
+class="mt-1 text-xs underline text-slate-300 hover:text-white">
+فتح Google Drive
+</button>
+
+<input id="selfieUrl"
+class="w-full mt-2 rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
+placeholder="الصق رابط الصورة هنا"/>
+</div>
+
+<!-- Car Outside -->
+<div class="verification-card">
+<p class="text-xs font-semibold">صورة السيارة من الخارج</p>
+
+<button id="openDriveBtn5"
+class="mt-1 text-xs underline text-slate-300 hover:text-white">
+فتح Google Drive
+</button>
+
+<input id="carOutsideUrl"
+class="w-full mt-2 rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
+placeholder="الصق رابط الصورة هنا"/>
+</div>
+
+<!-- Car Inside -->
+<div class="verification-card">
+<p class="text-xs font-semibold">صورة السيارة من الداخل</p>
+
+<button id="openDriveBtn6"
+class="mt-1 text-xs underline text-slate-300 hover:text-white">
+فتح Google Drive
+</button>
+
+<input id="carInsideUrl"
+class="w-full mt-2 rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
+placeholder="الصق رابط الصورة هنا"/>
+</div>
+
+<button id="submitVerificationBtn"
+class="mt-4 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-black text-sm font-semibold py-3">
+إرسال المستندات للمراجعة
+</button>
+
+<p id="verificationStatus"
+class="text-xs text-slate-400"></p>
+
+</div>
+</div>
     <p id="driverLocationStatus" class="mt-2 text-xs text-slate-400">
   لم يتم تحديد موقع السائق بعد.
 </p>
