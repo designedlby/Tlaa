@@ -436,10 +436,9 @@ nearbyTrips.forEach((t) => {
     </div>
 
     <button data-trip="${id}"
-  class="acceptBtn shrink-0 rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
-  قبول الرحلة
+class="acceptBtn shrink-0 rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
+قبول الرحلة
 </button>
-
   </div>
 
   <div class="mt-3 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black/20">
@@ -453,6 +452,29 @@ nearbyTrips.forEach((t) => {
     renderMiniMap(`map_${id}`, t);
   });
 
+// =======================
+// Disable accept if not verified
+// =======================
+const privateRef = doc(db, "users_private", driverId);
+const privateSnap = await getDoc(privateRef);
+
+let verificationStatus = "not_submitted";
+
+if (privateSnap.exists()) {
+  verificationStatus = privateSnap.data().verificationStatus || "not_submitted";
+}
+
+if (verificationStatus !== "approved") {
+  list.querySelectorAll(".acceptBtn").forEach((btn) => {
+    btn.disabled = true;
+
+    btn.classList.remove("bg-emerald-500/90", "hover:bg-emerald-500");
+    btn.classList.add("bg-gray-500", "cursor-not-allowed");
+
+    btn.textContent = "الحساب غير موثق";
+  });
+}
+  
   // bind accept buttons
   list.querySelectorAll(".acceptBtn").forEach((btn) => {
   if (!currentDriverVerification.ok) {
@@ -1679,3 +1701,35 @@ console.error(e);
 }
 
 }
+
+// ===============================
+// Paste from Clipboard
+// ===============================
+
+async function pasteFromClipboard(inputId){
+
+try{
+
+const text = await navigator.clipboard.readText();
+
+const input = document.getElementById(inputId);
+
+if(input){
+input.value = text;
+}
+
+}catch(e){
+
+showAlert("لم نتمكن من قراءة الحافظة. قم باللصق يدويًا.","error");
+
+}
+
+}
+
+// buttons
+document.getElementById("pasteNationalId")?.addEventListener("click",()=>pasteFromClipboard("nationalIdUrl"));
+document.getElementById("pasteDriverLicense")?.addEventListener("click",()=>pasteFromClipboard("driverLicenseUrl"));
+document.getElementById("pasteVehicleLicense")?.addEventListener("click",()=>pasteFromClipboard("vehicleLicenseUrl"));
+document.getElementById("pasteSelfie")?.addEventListener("click",()=>pasteFromClipboard("selfieUrl"));
+document.getElementById("pasteCarOutside")?.addEventListener("click",()=>pasteFromClipboard("carOutsideUrl"));
+document.getElementById("pasteCarInside")?.addEventListener("click",()=>pasteFromClipboard("carInsideUrl"));
