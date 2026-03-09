@@ -35,6 +35,9 @@ const firebaseConfig = {
   measurementId: "G-KGY2LHVWXK"
 };
 
+let unsubscribeMyTrip = null;
+let currentDriverVerification = { ok: true, issues: [] };
+
 function $(id) { return document.getElementById(id); }
 
 const tabSignup = $("tabSignup");
@@ -294,6 +297,11 @@ const driverBox = document.getElementById("driverBox");
 if (profile.role === "driver") {
   driverBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
+
+  const verification = evaluateDriverVerification(profile, privateData);
+  currentDriverVerification = verification;
+  renderDriverVerificationUI(verification);
+
   await loadPendingTripsForDriver(user.uid);
   watchDriverCurrentTrip(user.uid);
 } else {
@@ -449,25 +457,36 @@ nearbyTrips.forEach((t) => {
 
   // bind accept buttons
   list.querySelectorAll(".acceptBtn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const tripId = btn.getAttribute("data-trip");
-      if (!tripId) return;
-      btn.setAttribute("disabled", "true");
-      btn.textContent = "جارٍ القبول...";
+  if (!currentDriverVerification.ok) {
+    btn.setAttribute("disabled", "true");
+    btn.classList.add("opacity-50", "cursor-not-allowed");
+    btn.textContent = "غير متاح";
+  }
 
-      try {
-        await acceptTrip(driverId, tripId);
-        btn.textContent = "تم ✅";
-        // reload
-        await loadPendingTripsForDriver(driverId);
-      } catch (e) {
-        console.error(e);
-        btn.removeAttribute("disabled");
-        btn.textContent = "قبول";
-        showAlert("فشل قبول الرحلة. ممكن تكون اتقبلت من سائق تاني.", "error");
-      }
-    });
+  btn.addEventListener("click", async () => {
+    if (!currentDriverVerification.ok) {
+      showAlert("لا يمكنك قبول الرحلات قبل استكمال بيانات السائق وصلاحية المستندات.", "error");
+      return;
+    }
+
+    const tripId = btn.getAttribute("data-trip");
+    if (!tripId) return;
+
+    btn.setAttribute("disabled", "true");
+    btn.textContent = "جارٍ القبول...";
+
+    try {
+      await acceptTrip(driverId, tripId);
+      btn.textContent = "تم ✅";
+      await loadPendingTripsForDriver(driverId);
+    } catch (e) {
+      console.error(e);
+      btn.removeAttribute("disabled");
+      btn.textContent = "قبول";
+      showAlert("فشل قبول الرحلة. ممكن تكون اتقبلت من سائق تاني.", "error");
+    }
   });
+});
 }
 
 async function acceptTrip(driverId, tripId) {
@@ -543,6 +562,88 @@ function statusBadge(status) {
       <span>${item.label}</span>
     </span>
   `;
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+
+  const today = new Date();
+  const target = new Date(dateStr);
+
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+
+  const diffMs = target - today;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function evaluateDriverVerification(profile, privateData) {
+  const issues = [];
+
+  // بيانات عامة
+  if (!profile?.name) issues.push("اسم السائق غير مكتمل.");
+  if (!profile?.phone) issues.push("رقم موبايل السائق غير مكتمل.");
+  if (!profile?.carPlate) issues.push("رقم العربية غير مكتمل.");
+  if (!profile?.carModel) issues.push("نوع العربية غير مكتمل.");
+  if (!profile?.carColor) issues.push("لون العربية غير مكتمل.");
+
+  // بيانات خاصة
+  if (!privateData?.nationalId) issues.push("رقم البطاقة غير مكتمل.");
+  if (!privateData?.nationalIdExpiry) issues.push("تاريخ انتهاء البطاقة غير مكتمل.");
+  if (!privateData?.driverLicenseNumber) issues.push("بيانات رخصة القيادة غير مكتملة.");
+  if (!privateData?.driverLicenseExpiry) issues.push("تاريخ انتهاء رخصة القيادة غير مكتمل.");
+  if (!privateData?.vehicleLicenseNumber) issues.push("بيانات رخصة السيارة غير مكتملة.");
+  if (!privateData?.vehicleLicenseExpiry) issues.push("تاريخ انتهاء رخصة السيارة غير مكتمل.");
+
+  // فحص التواريخ
+  const nationalIdDays = daysUntil(privateData?.nationalIdExpiry);
+  const driverLicenseDays = daysUntil(privateData?.driverLicenseExpiry);
+  const vehicleLicenseDays = daysUntil(privateData?.vehicleLicenseExpiry);
+
+  if (nationalIdDays !== null && nationalIdDays < 0) {
+    issues.push("البطاقة الشخصية منتهية.");
+  } else if (nationalIdDays !== null && nationalIdDays <= 30) {
+    issues.push(`البطاقة الشخصية ستنتهي خلال ${nationalIdDays} يوم.`);
+  }
+
+  if (driverLicenseDays !== null && driverLicenseDays < 0) {
+    issues.push("رخصة القيادة منتهية.");
+  } else if (driverLicenseDays !== null && driverLicenseDays <= 30) {
+    issues.push(`رخصة القيادة ستنتهي خلال ${driverLicenseDays} يوم.`);
+  }
+
+  if (vehicleLicenseDays !== null && vehicleLicenseDays < 0) {
+    issues.push("رخصة السيارة منتهية.");
+  } else if (vehicleLicenseDays !== null && vehicleLicenseDays <= 30) {
+    issues.push(`رخصة السيارة ستنتهي خلال ${vehicleLicenseDays} يوم.`);
+  }
+
+  const isBlocked =
+    issues.some(msg =>
+      msg.includes("غير مكتمل") ||
+      msg.includes("منتهية")
+    );
+
+  return {
+    ok: !isBlocked,
+    issues
+  };
+}
+
+function renderDriverVerificationUI(result) {
+  const box = document.getElementById("driverVerificationBox");
+  const msg = document.getElementById("driverVerificationMsg");
+
+  if (!box || !msg) return;
+
+  if (!result || result.ok) {
+    box.classList.add("hidden");
+    msg.innerHTML = "";
+    return;
+  }
+
+  box.classList.remove("hidden");
+  msg.innerHTML = result.issues.map(item => `<div>• ${escapeHtml(item)}</div>`).join("");
 }
 
 async function saveProfile(uid) {
