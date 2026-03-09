@@ -1518,3 +1518,10 @@ document.getElementById("applyMapsHelperBtn")?.addEventListener("click", () => {
   closeMapsHelperModal();
   showAlert("تم تطبيق الموقع من Google Maps ✅", "success");
 });
+
+document.getElementById("editProfileBtn")?.addEventListener("click", () => {
+  const box = document.getElementById("profileBox");
+  if (!box) return;
+
+  box.classList.toggle("hidden");
+});
