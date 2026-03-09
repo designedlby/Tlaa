@@ -300,6 +300,7 @@ if (profile.role === "driver") {
   renderDriverVerificationUI(verification);
 
   await loadPendingTripsForDriver(user.uid);
+  loadDriverVerificationState(user.uid);
   watchDriverCurrentTrip(user.uid);
 } else {
   riderBox?.classList.remove("hidden");
@@ -1605,3 +1606,58 @@ document.getElementById("submitVerificationBtn")?.addEventListener("click", asyn
   }
 
 });
+
+// ============================
+// Driver Verification UI
+// ============================
+
+async function loadDriverVerificationState(uid){
+
+const stateBox=document.getElementById("verificationStateBox");
+const title=document.getElementById("verificationStateTitle");
+const text=document.getElementById("verificationStateText");
+
+const verificationForm=document.getElementById("submitVerificationBtn")?.closest(".rounded-2xl");
+
+try{
+
+const ref=doc(db,"users_private",uid);
+const snap=await getDoc(ref);
+
+let status="not_submitted";
+
+if(snap.exists()){
+status=snap.data().verificationStatus || "not_submitted";
+}
+
+if(status==="pending"){
+
+stateBox.classList.remove("hidden");
+
+title.textContent="🟡 حسابك قيد المراجعة";
+
+text.textContent="تم استلام مستنداتك وسيتم مراجعتها قريبًا.";
+
+verificationForm?.classList.add("hidden");
+
+}
+
+if(status==="approved"){
+
+stateBox.classList.remove("hidden");
+
+title.textContent="🟢 حسابك موثق";
+
+text.textContent="يمكنك الآن استقبال الرحلات.";
+
+verificationForm?.classList.add("hidden");
+
+}
+
+}catch(e){
+
+console.error(e);
+
+}
+
+}
