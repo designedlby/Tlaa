@@ -436,9 +436,9 @@ nearbyTrips.forEach((t) => {
     </div>
 
     <button data-trip="${id}"
-      class="acceptBtn w-full sm:w-auto rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
-      قبول
-    </button>
+  class="acceptBtn shrink-0 rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
+  قبول الرحلة
+</button>
 
   </div>
 
@@ -470,6 +470,24 @@ nearbyTrips.forEach((t) => {
     const tripId = btn.getAttribute("data-trip");
     if (!tripId) return;
 
+    // ⭐ فحص توثيق السائق قبل قبول الرحلة
+const privateRef = doc(db,"users_private",driverId);
+const privateSnap = await getDoc(privateRef);
+
+let verificationStatus="not_submitted";
+
+if(privateSnap.exists()){
+verificationStatus = privateSnap.data().verificationStatus || "not_submitted";
+}
+
+if(verificationStatus !== "approved"){
+
+showAlert("لا يمكنك قبول الرحلات قبل توثيق الحساب.","error");
+
+return;
+
+}
+    
     btn.setAttribute("disabled", "true");
     btn.textContent = "جارٍ القبول...";
 
