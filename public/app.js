@@ -35,9 +35,6 @@ const firebaseConfig = {
   measurementId: "G-KGY2LHVWXK"
 };
 
-let unsubscribeMyTrip = null;
-let currentDriverVerification = { ok: true, issues: [] };
-
 function $(id) { return document.getElementById(id); }
 
 const tabSignup = $("tabSignup");
@@ -1095,6 +1092,7 @@ document.getElementById("useMyLocationBtn")?.addEventListener("click", async () 
 
 // ========== Rider Realtime: watch latest trip ==========
 let unsubscribeMyTrip = null;
+let currentDriverVerification = { ok: true, issues: [] };
 
 function watchMyLatestTrip(riderId) {
   const info = document.getElementById("myTripInfo");
