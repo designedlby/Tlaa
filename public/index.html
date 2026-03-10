@@ -410,11 +410,20 @@
 <div id="verificationStateBox"
 class="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 hidden">
 
-<p id="verificationStateTitle"
-class="text-sm font-semibold"></p>
+  <div class="flex items-start gap-3">
+    <div id="verificationStateDot" class="mt-1 h-3 w-3 rounded-full bg-yellow-400"></div>
 
-<p id="verificationStateText"
-class="mt-2 text-xs text-slate-300"></p>
+    <div class="flex-1">
+      <p id="verificationStateTitle"
+      class="text-sm font-semibold text-white"></p>
+
+      <p id="verificationStateText"
+      class="mt-2 text-xs text-slate-300 leading-relaxed"></p>
+
+      <p id="verificationStateReason"
+      class="mt-2 text-xs text-rose-300 hidden"></p>
+    </div>
+  </div>
 
 </div>
     
