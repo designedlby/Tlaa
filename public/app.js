@@ -301,6 +301,8 @@ if (profile.role === "driver") {
 
   await loadPendingTripsForDriver(user.uid);
   loadDriverVerificationState(user.uid);
+  initVerificationWizard();
+  
   watchDriverCurrentTrip(user.uid);
 } else {
   riderBox?.classList.remove("hidden");
@@ -1568,83 +1570,256 @@ document.getElementById("editProfileBtn")?.addEventListener("click", () => {
 });
 
 // ===============================
-// Driver Verification System
+// Driver Verification Wizard System
 // ===============================
 
-// فتح Google Drive
-const driveUrl = "https://drive.google.com";
-
-["openDriveBtn1","openDriveBtn2","openDriveBtn3","openDriveBtn4","openDriveBtn5","openDriveBtn6"]
-.forEach(id=>{
-  const btn=document.getElementById(id);
-  if(btn){
-    btn.addEventListener("click",()=>{
-      window.open(driveUrl,"_blank");
-    });
+const driverVerificationSteps = [
+  {
+    key: "nationalIdUrl",
+    title: "الخطوة 1: صورة البطاقة الشخصية",
+    desc: `صوّر البطاقة الشخصية بوضوح من الموبايل.
+ثم افتح Google Drive وارفع الصورة.
+بعد ذلك اضغط:
+مشاركة (Share) →
+أي شخص لديه الرابط (Anyone with the link) →
+مشاهدة فقط (Viewer) →
+نسخ الرابط (Copy link)
+ثم الصق الرابط هنا.`
+  },
+  {
+    key: "driverLicenseUrl",
+    title: "الخطوة 2: رخصة القيادة",
+    desc: `صوّر رخصة القيادة بوضوح.
+ثم في Google Drive:
+مشاركة (Share) →
+أي شخص لديه الرابط (Anyone with the link) →
+مشاهدة فقط (Viewer) →
+نسخ الرابط (Copy link)
+ثم الصق الرابط هنا.`
+  },
+  {
+    key: "vehicleLicenseUrl",
+    title: "الخطوة 3: رخصة السيارة",
+    desc: `صوّر رخصة السيارة بوضوح.
+ثم في Google Drive:
+مشاركة (Share) →
+أي شخص لديه الرابط (Anyone with the link) →
+مشاهدة فقط (Viewer) →
+نسخ الرابط (Copy link)
+ثم الصق الرابط هنا.`
+  },
+  {
+    key: "selfieUrl",
+    title: "الخطوة 4: سيلفي مع البطاقة",
+    desc: `التقط صورة سيلفي واضحة وأنت تمسك البطاقة.
+ثم ارفعها إلى Google Drive.
+بعد ذلك اضبط المشاركة على:
+Anyone with the link / أي شخص لديه الرابط
+واجعلها Viewer / مشاهدة فقط
+ثم انسخ الرابط والصقه هنا.`
+  },
+  {
+    key: "carOutsideUrl",
+    title: "الخطوة 5: صورة السيارة من الخارج",
+    desc: `التقط صورة واضحة للسيارة من الخارج.
+يفضل أن تكون السيارة كاملة في الصورة.
+ثم ارفع الصورة إلى Google Drive
+واجعل المشاركة:
+Anyone with the link
+Viewer
+ثم الصق الرابط هنا.`
+  },
+  {
+    key: "carInsideUrl",
+    title: "الخطوة 6: صورة السيارة من الداخل",
+    desc: `التقط صورة واضحة للسيارة من الداخل.
+ثم ارفع الصورة إلى Google Drive
+واضبط المشاركة:
+Share → Anyone with the link → Viewer
+ثم انسخ الرابط والصقه هنا.`
   }
-});
+];
 
+let currentVerificationStep = 0;
 
-// زر إرسال المستندات
-document.getElementById("submitVerificationBtn")?.addEventListener("click", async ()=>{
+function getVerificationWizardEls() {
+  return {
+    counter: document.getElementById("verificationStepCounter"),
+    progress: document.getElementById("verificationProgressBar"),
+    title: document.getElementById("verificationStepTitle"),
+    desc: document.getElementById("verificationStepDescription"),
+    input: document.getElementById("verificationStepInput"),
+    msg: document.getElementById("verificationStepMsg"),
+    prevBtn: document.getElementById("verificationPrevBtn"),
+    nextBtn: document.getElementById("verificationNextBtn"),
+    submitBtn: document.getElementById("submitVerificationBtn"),
+    openDriveBtn: document.getElementById("verificationOpenDriveBtn")
+  };
+}
 
-  const user=getAuth().currentUser;
+function renderVerificationStep() {
+  const els = getVerificationWizardEls();
+  const step = driverVerificationSteps[currentVerificationStep];
+  if (!step || !els.title) return;
 
-  if(!user){
-    showAlert("يجب تسجيل الدخول أولاً","error");
+  els.counter.textContent = `${currentVerificationStep + 1} / ${driverVerificationSteps.length}`;
+  els.title.textContent = step.title;
+  els.desc.textContent = step.desc;
+
+  const percent = ((currentVerificationStep + 1) / driverVerificationSteps.length) * 100;
+  els.progress.style.width = `${percent}%`;
+
+  const hiddenInput = document.getElementById(step.key);
+  els.input.value = hiddenInput?.value || "";
+
+  els.msg.textContent = "";
+
+  // إظهار/إخفاء الأزرار
+  if (currentVerificationStep === 0) {
+    els.prevBtn.classList.add("opacity-50", "cursor-not-allowed");
+    els.prevBtn.disabled = true;
+  } else {
+    els.prevBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    els.prevBtn.disabled = false;
+  }
+
+  if (currentVerificationStep === driverVerificationSteps.length - 1) {
+    els.nextBtn.classList.add("hidden");
+    els.submitBtn.classList.remove("hidden");
+  } else {
+    els.nextBtn.classList.remove("hidden");
+    els.submitBtn.classList.add("hidden");
+  }
+}
+
+function storeCurrentVerificationStepValue() {
+  const els = getVerificationWizardEls();
+  const step = driverVerificationSteps[currentVerificationStep];
+  if (!step) return;
+
+  const hiddenInput = document.getElementById(step.key);
+  if (hiddenInput) {
+    hiddenInput.value = (els.input.value || "").trim();
+  }
+}
+
+function isDriveUrl(url) {
+  return String(url || "").includes("drive.google.com");
+}
+
+function initVerificationWizard() {
+  const els = getVerificationWizardEls();
+  if (!els.title) return;
+
+  renderVerificationStep();
+
+  els.prevBtn?.addEventListener("click", () => {
+    storeCurrentVerificationStepValue();
+
+    if (currentVerificationStep > 0) {
+      currentVerificationStep--;
+      renderVerificationStep();
+    }
+  });
+
+  els.nextBtn?.addEventListener("click", () => {
+    storeCurrentVerificationStepValue();
+
+    const step = driverVerificationSteps[currentVerificationStep];
+    const value = document.getElementById(step.key)?.value?.trim();
+
+    if (!value) {
+      els.msg.textContent = "يرجى لصق رابط الصورة أولًا.";
+      return;
+    }
+
+    if (!isDriveUrl(value)) {
+      els.msg.textContent = "الرابط يجب أن يكون من Google Drive.";
+      return;
+    }
+
+    if (currentVerificationStep < driverVerificationSteps.length - 1) {
+      currentVerificationStep++;
+      renderVerificationStep();
+    }
+  });
+
+  els.openDriveBtn?.addEventListener("click", () => {
+    window.open("https://drive.google.com", "_blank");
+  });
+
+  document.getElementById("verificationPasteBtn")?.addEventListener("click", async () => {
+    try {
+      const txt = await navigator.clipboard.readText();
+      if (els.input) els.input.value = txt || "";
+      storeCurrentVerificationStepValue();
+      els.msg.textContent = "تم اللصق من الحافظة ✅";
+    } catch (e) {
+      console.error(e);
+      els.msg.textContent = "تعذر اللصق من الحافظة. الصق الرابط يدويًا.";
+    }
+  });
+
+  els.input?.addEventListener("input", () => {
+    storeCurrentVerificationStepValue();
+  });
+}
+
+document.getElementById("submitVerificationBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+
+  if (!user) {
+    showAlert("يجب تسجيل الدخول أولًا", "error");
     return;
   }
 
-  const nationalId=document.getElementById("nationalIdUrl")?.value.trim();
-  const driverLicense=document.getElementById("driverLicenseUrl")?.value.trim();
-  const vehicleLicense=document.getElementById("vehicleLicenseUrl")?.value.trim();
-  const selfie=document.getElementById("selfieUrl")?.value.trim();
-  const carOutside=document.getElementById("carOutsideUrl")?.value.trim();
-  const carInside=document.getElementById("carInsideUrl")?.value.trim();
+  storeCurrentVerificationStepValue();
 
-  const statusBox=document.getElementById("verificationStatus");
+  const nationalId = document.getElementById("nationalIdUrl")?.value.trim();
+  const driverLicense = document.getElementById("driverLicenseUrl")?.value.trim();
+  const vehicleLicense = document.getElementById("vehicleLicenseUrl")?.value.trim();
+  const selfie = document.getElementById("selfieUrl")?.value.trim();
+  const carOutside = document.getElementById("carOutsideUrl")?.value.trim();
+  const carInside = document.getElementById("carInsideUrl")?.value.trim();
 
-  // تحقق بسيط من الروابط
-  const urls=[nationalId,driverLicense,vehicleLicense,selfie,carOutside,carInside];
+  const statusBox = document.getElementById("verificationStatus");
 
-  for(const url of urls){
-    if(!url.includes("drive.google.com")){
-      if(statusBox) statusBox.textContent="يرجى إدخال روابط Google Drive صحيحة.";
+  const urls = [nationalId, driverLicense, vehicleLicense, selfie, carOutside, carInside];
+
+  for (const url of urls) {
+    if (!isDriveUrl(url)) {
+      if (statusBox) statusBox.textContent = "يرجى إدخال جميع روابط Google Drive بشكل صحيح.";
       return;
     }
   }
 
-  try{
+  try {
+    const ref = doc(db, "users_private", user.uid);
 
-    const ref=doc(db,"users_private",user.uid);
+    await setDoc(ref, {
+      nationalIdImage: nationalId,
+      driverLicenseImage: driverLicense,
+      vehicleLicenseImage: vehicleLicense,
+      selfieImage: selfie,
+      carOutsideImage: carOutside,
+      carInsideImage: carInside,
+      verificationStatus: "pending",
+      submittedAt: serverTimestamp()
+    }, { merge: true });
 
-    await setDoc(ref,{
-      nationalIdImage:nationalId,
-      driverLicenseImage:driverLicense,
-      vehicleLicenseImage:vehicleLicense,
-      selfieImage:selfie,
-      carOutsideImage:carOutside,
-      carInsideImage:carInside,
-
-      verificationStatus:"pending",
-      submittedAt:serverTimestamp()
-
-    },{merge:true});
-
-    if(statusBox){
-      statusBox.textContent="تم إرسال المستندات للمراجعة.";
+    if (statusBox) {
+      statusBox.textContent = "تم إرسال المستندات للمراجعة ✅";
     }
 
-  }catch(e){
+    loadDriverVerificationState(user.uid);
 
+  } catch (e) {
     console.error(e);
 
-    if(statusBox){
-      statusBox.textContent="حدث خطأ أثناء إرسال المستندات.";
+    if (statusBox) {
+      statusBox.textContent = "حدث خطأ أثناء إرسال المستندات.";
     }
-
   }
-
 });
 
 // ============================
