@@ -300,7 +300,7 @@ if (profile.role === "driver") {
   renderDriverVerificationUI(verification);
 
   await loadPendingTripsForDriver(user.uid);
-  loadDriverVerificationState(user.uid);
+  await loadDriverVerificationState(user.uid);
   initVerificationWizard();
   
   watchDriverCurrentTrip(user.uid);
@@ -1808,10 +1808,13 @@ document.getElementById("submitVerificationBtn")?.addEventListener("click", asyn
     }, { merge: true });
 
     if (statusBox) {
-      statusBox.textContent = "تم إرسال المستندات للمراجعة ✅";
-    }
+  statusBox.textContent = "تم إرسال المستندات للمراجعة ✅";
+}
 
-    loadDriverVerificationState(user.uid);
+currentVerificationStep = 0;
+renderVerificationStep();
+
+await loadDriverVerificationState(user.uid);
 
   } catch (e) {
     console.error(e);
@@ -1826,55 +1829,84 @@ document.getElementById("submitVerificationBtn")?.addEventListener("click", asyn
 // Driver Verification UI
 // ============================
 
-async function loadDriverVerificationState(uid){
+async function loadDriverVerificationState(uid) {
+  const stateBox = document.getElementById("verificationStateBox");
+  const title = document.getElementById("verificationStateTitle");
+  const text = document.getElementById("verificationStateText");
+  const reason = document.getElementById("verificationStateReason");
+  const dot = document.getElementById("verificationStateDot");
+  const wizard = document.getElementById("driverVerificationWizard");
 
-const stateBox=document.getElementById("verificationStateBox");
-const title=document.getElementById("verificationStateTitle");
-const text=document.getElementById("verificationStateText");
+  try {
+    const ref = doc(db, "users_private", uid);
+    const snap = await getDoc(ref);
 
-const verificationForm=document.getElementById("submitVerificationBtn")?.closest(".rounded-2xl");
+    let status = "not_submitted";
+    let rejectionReason = "";
 
-try{
+    if (snap.exists()) {
+      const data = snap.data();
+      status = data.verificationStatus || "not_submitted";
+      rejectionReason = data.rejectionReason || "";
+    }
 
-const ref=doc(db,"users_private",uid);
-const snap=await getDoc(ref);
+    // reset
+    stateBox?.classList.add("hidden");
+    reason?.classList.add("hidden");
 
-let status="not_submitted";
+    if (dot) {
+      dot.classList.remove("bg-yellow-400", "bg-emerald-400", "bg-rose-400", "bg-slate-400");
+    }
 
-if(snap.exists()){
-status=snap.data().verificationStatus || "not_submitted";
-}
+    // الحالة 1: لم يتم الإرسال بعد
+    if (status === "not_submitted") {
+      wizard?.classList.remove("hidden");
+      stateBox?.classList.add("hidden");
+      return;
+    }
 
-if(status==="pending"){
+    // الحالة 2: قيد المراجعة
+    if (status === "pending") {
+      wizard?.classList.add("hidden");
+      stateBox?.classList.remove("hidden");
 
-stateBox.classList.remove("hidden");
+      if (dot) dot.classList.add("bg-yellow-400");
+      if (title) title.textContent = "🟡 حسابك قيد المراجعة";
+      if (text) text.textContent = "تم استلام المستندات بنجاح. لا يمكنك قبول الرحلات حتى انتهاء المراجعة.";
+      return;
+    }
 
-title.textContent="🟡 حسابك قيد المراجعة";
+    // الحالة 3: موثق
+    if (status === "approved") {
+      wizard?.classList.add("hidden");
+      stateBox?.classList.remove("hidden");
 
-text.textContent="تم استلام مستنداتك وسيتم مراجعتها قريبًا.";
+      if (dot) dot.classList.add("bg-emerald-400");
+      if (title) title.textContent = "🟢 حسابك موثق";
+      if (text) text.textContent = "تم توثيق حساب السائق بنجاح. يمكنك الآن استقبال وقبول الرحلات.";
+      return;
+    }
 
-verificationForm?.classList.add("hidden");
+    // الحالة 4: مرفوض
+    if (status === "rejected") {
+      wizard?.classList.remove("hidden");
+      stateBox?.classList.remove("hidden");
 
-}
+      if (dot) dot.classList.add("bg-rose-400");
+      if (title) title.textContent = "🔴 تم رفض التوثيق";
+      if (text) text.textContent = "يرجى مراجعة البيانات أو الروابط وإعادة الإرسال مرة أخرى.";
 
-if(status==="approved"){
+      if (rejectionReason && reason) {
+        reason.classList.remove("hidden");
+        reason.textContent = `سبب الرفض: ${rejectionReason}`;
+      }
 
-stateBox.classList.remove("hidden");
+      return;
+    }
 
-title.textContent="🟢 حسابك موثق";
-
-text.textContent="يمكنك الآن استقبال الرحلات.";
-
-verificationForm?.classList.add("hidden");
-
-}
-
-}catch(e){
-
-console.error(e);
-
-}
-
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 // ===============================
