@@ -292,9 +292,19 @@ const riderBox = document.getElementById("riderBox");
 const driverBox = document.getElementById("driverBox");
 const adminBox = document.getElementById("adminBox");
     
-if (profile.role === "driver") {
+if (profile.role === "admin") {
+
+  adminBox?.classList.remove("hidden");
+  riderBox?.classList.add("hidden");
+  driverBox?.classList.add("hidden");
+
+  await loadPendingDriverVerifications();
+
+} else if (profile.role === "driver") {
+
   driverBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
+  adminBox?.classList.add("hidden");
 
   const verification = evaluateDriverVerification(profile, privateData);
   currentDriverVerification = verification;
@@ -303,11 +313,14 @@ if (profile.role === "driver") {
   await loadPendingTripsForDriver(user.uid);
   await loadDriverVerificationState(user.uid);
   initVerificationWizard();
-  
   watchDriverCurrentTrip(user.uid);
+
 } else {
+
   riderBox?.classList.remove("hidden");
   driverBox?.classList.add("hidden");
+  adminBox?.classList.add("hidden");
+
   initMapOnce();
   watchMyLatestTrip(user.uid);
 }
