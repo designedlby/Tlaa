@@ -290,7 +290,8 @@ if (vehicleLicenseExpiry) vehicleLicenseExpiry.value = privateData?.vehicleLicen
 // Show rider/driver boxes
 const riderBox = document.getElementById("riderBox");
 const driverBox = document.getElementById("driverBox");
-
+const adminBox = document.getElementById("adminBox");
+    
 if (profile.role === "driver") {
   driverBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
@@ -551,6 +552,12 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function truncateUrl(url, max = 40) {
+  const s = String(url || "");
+  if (s.length <= max) return s;
+  return s.slice(0, max) + "...";
 }
 
 function normalizePhone(phone) {
@@ -1910,6 +1917,145 @@ async function loadDriverVerificationState(uid) {
 }
 
 // ===============================
+// Admin Review: Pending Drivers
+// ===============================
+async function loadPendingDriverVerifications() {
+  const list = document.getElementById("adminDriversList");
+  if (!list) return;
+
+  list.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل السائقين...</div>`;
+
+  try {
+    const q = query(
+      collection(db, "users_private"),
+      where("verificationStatus", "==", "pending")
+    );
+
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      list.innerHTML = `<div class="text-xs text-slate-400">لا يوجد سائقون قيد المراجعة حاليًا.</div>`;
+      return;
+    }
+
+    list.innerHTML = "";
+
+    for (const docSnap of snap.docs) {
+      const uid = docSnap.id;
+      const privateData = docSnap.data();
+
+      let publicData = {};
+      try {
+        const userRef = doc(db, "users", uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          publicData = userSnap.data();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      const card = document.createElement("div");
+      card.className = "rounded-2xl bg-white/5 ring-1 ring-white/10 p-4";
+
+      card.innerHTML = `
+        <div class="grid gap-3">
+          <div>
+            <div class="text-sm font-semibold break-all">
+              ${escapeHtml(publicData.name || "بدون اسم")} 
+              <span class="text-xs text-slate-400">(${escapeHtml(uid)})</span>
+            </div>
+
+            <div class="mt-1 text-xs text-slate-300 break-all">
+              📞 ${escapeHtml(publicData.phone || "-")}
+              ${publicData.carModel ? ` | 🚐 ${escapeHtml(publicData.carModel)}` : ""}
+              ${publicData.carPlate ? ` | ${escapeHtml(publicData.carPlate)}` : ""}
+            </div>
+          </div>
+
+          <div class="grid gap-2 text-xs text-slate-300 break-all">
+            <div>البطاقة: <a class="underline text-indigo-300" href="${privateData.nationalIdImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.nationalIdImage || "-"))}</a></div>
+            <div>رخصة القيادة: <a class="underline text-indigo-300" href="${privateData.driverLicenseImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.driverLicenseImage || "-"))}</a></div>
+            <div>رخصة السيارة: <a class="underline text-indigo-300" href="${privateData.vehicleLicenseImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.vehicleLicenseImage || "-"))}</a></div>
+            <div>السيلفي: <a class="underline text-indigo-300" href="${privateData.selfieImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.selfieImage || "-"))}</a></div>
+            <div>السيارة خارج: <a class="underline text-indigo-300" href="${privateData.carOutsideImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.carOutsideImage || "-"))}</a></div>
+            <div>السيارة داخل: <a class="underline text-indigo-300" href="${privateData.carInsideImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.carInsideImage || "-"))}</a></div>
+          </div>
+
+          <div class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+            <input data-reason="${uid}"
+              class="rejectReasonInput w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
+              placeholder="سبب الرفض (اختياري)" />
+
+            <button data-approve="${uid}"
+              class="approveDriverBtn rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2">
+              قبول
+            </button>
+
+            <button data-reject="${uid}"
+              class="rejectDriverBtn rounded-xl bg-rose-500/90 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2">
+              رفض
+            </button>
+          </div>
+        </div>
+      `;
+
+      list.appendChild(card);
+    }
+
+    // Approve handlers
+    list.querySelectorAll(".approveDriverBtn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const uid = btn.getAttribute("data-approve");
+        if (!uid) return;
+
+        try {
+          await setDoc(doc(db, "users_private", uid), {
+            verificationStatus: "approved",
+            verifiedAt: serverTimestamp()
+          }, { merge: true });
+
+          showAlert("تم قبول السائق ✅", "success");
+          await loadPendingDriverVerifications();
+        } catch (e) {
+          console.error(e);
+          showAlert("فشل قبول السائق.", "error");
+        }
+      });
+    });
+
+    // Reject handlers
+    list.querySelectorAll(".rejectDriverBtn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const uid = btn.getAttribute("data-reject");
+        if (!uid) return;
+
+        const reasonInput = document.querySelector(`[data-reason="${uid}"]`);
+        const rejectionReason = reasonInput?.value?.trim() || "";
+
+        try {
+          await setDoc(doc(db, "users_private", uid), {
+            verificationStatus: "rejected",
+            rejectionReason,
+            reviewedAt: serverTimestamp()
+          }, { merge: true });
+
+          showAlert("تم رفض السائق ✅", "success");
+          await loadPendingDriverVerifications();
+        } catch (e) {
+          console.error(e);
+          showAlert("فشل رفض السائق.", "error");
+        }
+      });
+    });
+
+  } catch (e) {
+    console.error(e);
+    list.innerHTML = `<div class="text-xs text-rose-300">حدث خطأ أثناء تحميل السائقين.</div>`;
+  }
+}
+
+// ===============================
 // Paste from Clipboard
 // ===============================
 
@@ -1940,3 +2086,7 @@ document.getElementById("pasteVehicleLicense")?.addEventListener("click",()=>pas
 document.getElementById("pasteSelfie")?.addEventListener("click",()=>pasteFromClipboard("selfieUrl"));
 document.getElementById("pasteCarOutside")?.addEventListener("click",()=>pasteFromClipboard("carOutsideUrl"));
 document.getElementById("pasteCarInside")?.addEventListener("click",()=>pasteFromClipboard("carInsideUrl"));
+
+document.getElementById("refreshAdminDriversBtn")?.addEventListener("click", async () => {
+  await loadPendingDriverVerifications();
+});
