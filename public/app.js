@@ -138,11 +138,12 @@ signupBtn?.addEventListener("click", async () => {
     const role = getSelectedRole();
 
     if (!email || !password) {
-      return showAlert("اكتب الإيميل والرقم السري.", "error");
-    }
-    if (password.length < 6) {
-      return showAlert("الرقم السري لازم يكون 6 حروف/أرقام على الأقل.", "error");
-    }
+  return showAlert("اكتب الإيميل وكلمة المرور.", "error");
+}
+
+if (!isStrongPassword(password)) {
+  return showAlert(getPasswordError(password), "error");
+}
 
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await upsertUserProfile(db, cred.user, name, role);
@@ -577,6 +578,43 @@ function normalizePhone(phone) {
   return String(phone || "").replace(/\s+/g, "").replace(/[^\d+]/g, "");
 }
 
+function isValidEgyptPhone(phone) {
+  const p = String(phone || "").trim();
+  return /^01\d{9}$/.test(p);
+}
+
+function isValidNationalId(nationalId) {
+  const n = String(nationalId || "").trim();
+  return /^\d{14}$/.test(n);
+}
+
+function isStrongPassword(password) {
+  const p = String(password || "");
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(p);
+}
+
+function getPasswordError(password) {
+  const p = String(password || "");
+
+  if (p.length < 8) {
+    return "كلمة المرور يجب أن تكون 8 أحرف على الأقل.";
+  }
+  if (!/[a-z]/.test(p)) {
+    return "كلمة المرور يجب أن تحتوي على حرف صغير واحد على الأقل.";
+  }
+  if (!/[A-Z]/.test(p)) {
+    return "كلمة المرور يجب أن تحتوي على حرف كبير واحد على الأقل.";
+  }
+  if (!/\d/.test(p)) {
+    return "كلمة المرور يجب أن تحتوي على رقم واحد على الأقل.";
+  }
+  if (!/[^A-Za-z0-9]/.test(p)) {
+    return "كلمة المرور يجب أن تحتوي على رمز واحد على الأقل مثل @ أو #.";
+  }
+
+  return "";
+}
+
 function phoneForWhatsApp(phone) {
   const p = normalizePhone(phone);
 
@@ -721,9 +759,14 @@ async function saveProfile(uid) {
   const role = roleEl?.textContent?.trim() || "rider";
 
   if (!name || !phone) {
-    if (statusEl) statusEl.textContent = "اكتب الاسم ورقم الموبايل.";
-    return;
-  }
+  if (statusEl) statusEl.textContent = "اكتب الاسم ورقم الموبايل.";
+  return;
+}
+
+if (!isValidEgyptPhone(phone)) {
+  if (statusEl) statusEl.textContent = "رقم الموبايل غير صحيح. يجب أن يكون 11 رقمًا ويبدأ بـ 01.";
+  return;
+}
 
   const payload = {
     name,
@@ -752,6 +795,21 @@ async function savePrivateDriverData(uid) {
   const vehicleLicenseNumber = document.getElementById("vehicleLicenseNumber")?.value?.trim() || "";
   const vehicleLicenseExpiry = document.getElementById("vehicleLicenseExpiry")?.value || "";
 
+  if (nationalId && !isValidNationalId(nationalId)) {
+  showAlert("رقم البطاقة الشخصية يجب أن يكون 14 رقمًا بالضبط.", "error");
+  return;
+}
+
+if (driverLicenseNumber && !/^[A-Za-z0-9\-\/\s]{4,30}$/.test(driverLicenseNumber)) {
+  showAlert("بيانات رخصة القيادة غير صحيحة.", "error");
+  return;
+}
+
+if (vehicleLicenseNumber && !/^[A-Za-z0-9\-\/\s]{4,30}$/.test(vehicleLicenseNumber)) {
+  showAlert("بيانات رخصة السيارة غير صحيحة.", "error");
+  return;
+}
+  
   await setDoc(doc(db, "users_private", uid), {
     nationalId,
     nationalIdExpiry,
