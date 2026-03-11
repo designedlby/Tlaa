@@ -547,6 +547,24 @@ class="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 hidden">
   
 </div>
 
+<!-- Admin Box -->
+<div id="adminBox" class="mt-4 hidden">
+  <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+    <div class="flex items-center justify-between">
+      <p class="text-sm font-semibold">مراجعة توثيق السائقين</p>
+      <button id="refreshAdminDriversBtn"
+        class="text-xs text-slate-300 hover:text-white underline underline-offset-4">
+        تحديث
+      </button>
+    </div>
+
+    <div id="adminDriversList" class="mt-3 grid gap-3"></div>
+
+    <p class="mt-2 text-xs text-slate-400">
+      هنا تظهر حسابات السائقين قيد المراجعة.
+    </p>
+  </div>
+</div>
           
           <button id="logoutBtn"
             class="mt-4 w-full rounded-2xl bg-rose-500/90 hover:bg-rose-500 text-white font-semibold py-3">
