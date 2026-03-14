@@ -331,6 +331,7 @@ if (profile.role === "admin") {
   await loadDriverVerificationState(user.uid);
   initVerificationWizard();
   watchDriverCurrentTrip(user.uid);
+  await loadMyLatestProfileUpdateRequest(user.uid);
 
 } else {
 
@@ -340,6 +341,7 @@ if (profile.role === "admin") {
 
   initMapOnce();
   watchMyLatestTrip(user.uid);
+  await loadMyLatestProfileUpdateRequest(user.uid);
 }
   } catch (e) {
     console.error(e);
@@ -914,6 +916,92 @@ async function submitProfileUpdateRequest(uid, role) {
   });
 
   if (statusEl) statusEl.textContent = "تم إرسال طلب التحديث للمراجعة ✅";
+}
+
+async function loadMyLatestProfileUpdateRequest(uid) {
+  const stateBox = document.getElementById("profileUpdateStateBox");
+  const stateDot = document.getElementById("profileUpdateStateDot");
+  const stateTitle = document.getElementById("profileUpdateStateTitle");
+  const stateText = document.getElementById("profileUpdateStateText");
+  const stateReason = document.getElementById("profileUpdateStateReason");
+
+  const form = document.getElementById("profileUpdateForm");
+  const toggleBtn = document.getElementById("toggleProfileUpdateBtn");
+
+  if (!stateBox || !form || !toggleBtn) return;
+
+  try {
+    const q = query(
+      collection(db, "profile_update_requests"),
+      where("uid", "==", uid),
+      orderBy("createdAt", "desc"),
+      limit(1)
+    );
+
+    const snap = await getDocs(q);
+
+    // reset
+    stateBox.classList.add("hidden");
+    stateReason?.classList.add("hidden");
+
+    if (stateDot) {
+      stateDot.classList.remove("bg-yellow-400", "bg-emerald-400", "bg-rose-400", "bg-slate-400");
+    }
+
+    // لو لا يوجد أي طلبات سابقة
+    if (snap.empty) {
+      form.classList.add("hidden");
+      toggleBtn.textContent = "فتح النموذج";
+      return;
+    }
+
+    const docSnap = snap.docs[0];
+    const req = docSnap.data();
+    const status = req.requestStatus || "pending";
+    const reason = req.adminResponse || "";
+
+    stateBox.classList.remove("hidden");
+
+    if (status === "pending") {
+      if (stateDot) stateDot.classList.add("bg-yellow-400");
+      if (stateTitle) stateTitle.textContent = "🟡 طلب التحديث قيد المراجعة";
+      if (stateText) stateText.textContent = "تم استلام طلب التحديث. يرجى الانتظار حتى 48 ساعة لمراجعته.";
+      form.classList.add("hidden");
+      toggleBtn.textContent = "قيد المراجعة";
+      toggleBtn.disabled = true;
+      toggleBtn.classList.add("opacity-50", "cursor-not-allowed");
+      return;
+    }
+
+    if (status === "approved") {
+      if (stateDot) stateDot.classList.add("bg-emerald-400");
+      if (stateTitle) stateTitle.textContent = "🟢 تمت الموافقة على طلب التحديث";
+      if (stateText) stateText.textContent = "تم اعتماد طلبك. يمكنك الآن تحديث البيانات أو إرسال طلب جديد عند الحاجة.";
+      form.classList.add("hidden");
+      toggleBtn.textContent = "فتح النموذج";
+      toggleBtn.disabled = false;
+      toggleBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      return;
+    }
+
+    if (status === "rejected") {
+      if (stateDot) stateDot.classList.add("bg-rose-400");
+      if (stateTitle) stateTitle.textContent = "🔴 تم رفض طلب التحديث";
+      if (stateText) stateText.textContent = "يمكنك تعديل البيانات وإرسال طلب جديد.";
+      if (reason && stateReason) {
+        stateReason.classList.remove("hidden");
+        stateReason.textContent = `سبب الرفض: ${reason}`;
+      }
+      form.classList.add("hidden");
+      toggleBtn.textContent = "إعادة الإرسال";
+      toggleBtn.disabled = false;
+      toggleBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      return;
+    }
+
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 async function updateDriverLocation(uid) {
@@ -2145,6 +2233,19 @@ async function loadPendingDriverVerifications() {
             </div>
           </div>
 
+         <div class="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
+  <div class="text-xs font-semibold text-white">بيانات المستندات النصية</div>
+
+  <div class="mt-2 grid gap-2 text-xs text-slate-300 break-all">
+    <div>رقم البطاقة: <b>${escapeHtml(privateData.nationalId || "-")}</b></div>
+    <div>انتهاء البطاقة: <b>${escapeHtml(privateData.nationalIdExpiry || "-")}</b></div>
+    <div>رقم/بيانات رخصة القيادة: <b>${escapeHtml(privateData.driverLicenseNumber || "-")}</b></div>
+    <div>انتهاء رخصة القيادة: <b>${escapeHtml(privateData.driverLicenseExpiry || "-")}</b></div>
+    <div>رقم/بيانات رخصة السيارة: <b>${escapeHtml(privateData.vehicleLicenseNumber || "-")}</b></div>
+    <div>انتهاء رخصة السيارة: <b>${escapeHtml(privateData.vehicleLicenseExpiry || "-")}</b></div>
+  </div>
+</div>
+
           <div class="grid gap-2 text-xs text-slate-300 break-all">
             <div>البطاقة: <a class="underline text-indigo-300" href="${privateData.nationalIdImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.nationalIdImage || "-"))}</a></div>
             <div>رخصة القيادة: <a class="underline text-indigo-300" href="${privateData.driverLicenseImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.driverLicenseImage || "-"))}</a></div>
@@ -2491,6 +2592,7 @@ document.getElementById("submitProfileUpdateRequestBtn")?.addEventListener("clic
   try {
     await submitProfileUpdateRequest(user.uid, role);
     showAlert("تم إرسال طلب التحديث ✅", "success");
+    await loadMyLatestProfileUpdateRequest(user.uid);
   } catch (e) {
     console.error(e);
     showAlert("فشل إرسال طلب التحديث.", "error");
