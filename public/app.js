@@ -315,6 +315,7 @@ if (profile.role === "admin") {
   driverBox?.classList.add("hidden");
 
   await loadPendingDriverVerifications();
+  await loadPendingProfileUpdateRequests();
 
 } else if (profile.role === "driver") {
 
@@ -2226,6 +2227,207 @@ async function loadPendingDriverVerifications() {
   }
 }
 
+
+// ===============================
+// Admin Review: Profile Update Requests
+// ===============================
+async function loadPendingProfileUpdateRequests() {
+  const list = document.getElementById("adminUpdateRequestsList");
+  if (!list) return;
+
+  list.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل طلبات التعديل...</div>`;
+
+  try {
+    const q = query(
+      collection(db, "profile_update_requests"),
+      where("requestStatus", "==", "pending")
+    );
+
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      list.innerHTML = `<div class="text-xs text-slate-400">لا توجد طلبات تعديل معلقة حاليًا.</div>`;
+      return;
+    }
+
+    list.innerHTML = "";
+
+    for (const docSnap of snap.docs) {
+      const requestId = docSnap.id;
+      const req = docSnap.data();
+      const uid = req.uid;
+
+      let publicData = {};
+      let privateData = {};
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", uid));
+        if (userSnap.exists()) publicData = userSnap.data();
+      } catch (e) {
+        console.error(e);
+      }
+
+      try {
+        const privateSnap = await getDoc(doc(db, "users_private", uid));
+        if (privateSnap.exists()) privateData = privateSnap.data();
+      } catch (e) {
+        console.error(e);
+      }
+
+      const updatedFieldsHtml = Object.entries(req.updatedFields || {})
+        .map(([key, value]) => `
+          <div class="text-xs text-slate-300 break-all">
+            <b>${escapeHtml(key)}</b>:
+            <span class="text-slate-500">${escapeHtml(String(publicData[key] || "-"))}</span>
+            →
+            <span class="text-emerald-300">${escapeHtml(String(value || "-"))}</span>
+          </div>
+        `).join("");
+
+      const updatedPrivateFieldsHtml = Object.entries(req.updatedPrivateFields || {})
+        .map(([key, value]) => `
+          <div class="text-xs text-slate-300 break-all">
+            <b>${escapeHtml(key)}</b>:
+            <span class="text-slate-500">${escapeHtml(String(privateData[key] || "-"))}</span>
+            →
+            <span class="text-emerald-300">${escapeHtml(String(value || "-"))}</span>
+          </div>
+        `).join("");
+
+      const card = document.createElement("div");
+      card.className = "rounded-2xl bg-white/5 ring-1 ring-white/10 p-4";
+
+      card.innerHTML = `
+        <div class="grid gap-3">
+          <div>
+            <div class="text-sm font-semibold break-all">
+              ${escapeHtml(publicData.name || "بدون اسم")}
+              <span class="text-xs text-slate-400">(${escapeHtml(uid)})</span>
+            </div>
+
+            <div class="mt-1 text-xs text-slate-300">
+              النوع: <b>${escapeHtml(req.role || "-")}</b>
+              | نوع الطلب: <b>${escapeHtml(req.requestType || "-")}</b>
+            </div>
+
+            <div class="mt-2 text-xs text-slate-300 break-all">
+              <b>السبب:</b> ${escapeHtml(req.reason || "-")}
+            </div>
+          </div>
+
+          ${updatedFieldsHtml ? `
+            <div class="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
+              <div class="text-xs font-semibold text-white">البيانات العامة المطلوبة للتعديل</div>
+              <div class="mt-2 grid gap-2">${updatedFieldsHtml}</div>
+            </div>
+          ` : ""}
+
+          ${updatedPrivateFieldsHtml ? `
+            <div class="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
+              <div class="text-xs font-semibold text-white">البيانات الخاصة المطلوبة للتعديل</div>
+              <div class="mt-2 grid gap-2">${updatedPrivateFieldsHtml}</div>
+            </div>
+          ` : ""}
+
+          <div class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+            <input data-update-reason="${requestId}"
+              class="updateRejectReasonInput w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
+              placeholder="سبب الرفض (اختياري)" />
+
+            <button data-update-approve="${requestId}"
+              class="approveUpdateBtn rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2">
+              اعتماد التعديل
+            </button>
+
+            <button data-update-reject="${requestId}"
+              class="rejectUpdateBtn rounded-xl bg-rose-500/90 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2">
+              رفض التعديل
+            </button>
+          </div>
+        </div>
+      `;
+
+      list.appendChild(card);
+    }
+
+    // Approve update request
+    list.querySelectorAll(".approveUpdateBtn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const requestId = btn.getAttribute("data-update-approve");
+        if (!requestId) return;
+
+        try {
+          const requestRef = doc(db, "profile_update_requests", requestId);
+          const requestSnap = await getDoc(requestRef);
+          if (!requestSnap.exists()) return;
+
+          const req = requestSnap.data();
+          const uid = req.uid;
+
+          // apply public updates
+          if (req.updatedFields && Object.keys(req.updatedFields).length > 0) {
+            await setDoc(doc(db, "users", uid), req.updatedFields, { merge: true });
+          }
+
+          // apply private updates
+          if (req.updatedPrivateFields && Object.keys(req.updatedPrivateFields).length > 0) {
+            await setDoc(doc(db, "users_private", uid), req.updatedPrivateFields, { merge: true });
+
+            // لو تحديث مستندات، نرجع حالة التوثيق pending للمراجعة الجديدة
+            if (req.requestType === "documents_update") {
+              await setDoc(doc(db, "users_private", uid), {
+                verificationStatus: "pending",
+                submittedAt: serverTimestamp()
+              }, { merge: true });
+            }
+          }
+
+          // mark request approved
+          await setDoc(requestRef, {
+            requestStatus: "approved",
+            reviewedAt: serverTimestamp()
+          }, { merge: true });
+
+          showAlert("تم اعتماد طلب التحديث ✅", "success");
+          await loadPendingProfileUpdateRequests();
+        } catch (e) {
+          console.error(e);
+          showAlert("فشل اعتماد طلب التحديث.", "error");
+        }
+      });
+    });
+
+    // Reject update request
+    list.querySelectorAll(".rejectUpdateBtn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const requestId = btn.getAttribute("data-update-reject");
+        if (!requestId) return;
+
+        const reasonInput = document.querySelector(`[data-update-reason="${requestId}"]`);
+        const rejectionReason = reasonInput?.value?.trim() || "";
+
+        try {
+          await setDoc(doc(db, "profile_update_requests", requestId), {
+            requestStatus: "rejected",
+            adminResponse: rejectionReason,
+            reviewedAt: serverTimestamp()
+          }, { merge: true });
+
+          showAlert("تم رفض طلب التحديث ✅", "success");
+          await loadPendingProfileUpdateRequests();
+        } catch (e) {
+          console.error(e);
+          showAlert("فشل رفض طلب التحديث.", "error");
+        }
+      });
+    });
+
+  } catch (e) {
+    console.error(e);
+    list.innerHTML = `<div class="text-xs text-rose-300">حدث خطأ أثناء تحميل طلبات التحديث.</div>`;
+  }
+}
+
 // ===============================
 // Paste from Clipboard
 // ===============================
@@ -2293,4 +2495,8 @@ document.getElementById("submitProfileUpdateRequestBtn")?.addEventListener("clic
     console.error(e);
     showAlert("فشل إرسال طلب التحديث.", "error");
   }
+});
+
+document.getElementById("refreshUpdateRequestsBtn")?.addEventListener("click", async () => {
+  await loadPendingProfileUpdateRequests();
 });
