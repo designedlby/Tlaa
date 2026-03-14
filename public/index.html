@@ -370,6 +370,27 @@
   تأكيد إنهاء
 </button>
   </div>
+
+<!-- Rider rates driver -->
+<div id="riderRatingBox" class="mt-4 hidden rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+  <p class="text-sm font-semibold">قيّم السائق</p>
+
+  <div id="riderRatingStars" class="mt-3 flex flex-wrap gap-2">
+    <button type="button" class="riderStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="1">1 ⭐</button>
+    <button type="button" class="riderStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="2">2 ⭐</button>
+    <button type="button" class="riderStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="3">3 ⭐</button>
+    <button type="button" class="riderStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="4">4 ⭐</button>
+    <button type="button" class="riderStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="5">5 ⭐</button>
+  </div>
+
+  <button id="submitRiderRatingBtn"
+    class="mt-3 w-full rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-semibold py-3">
+    إرسال تقييم السائق
+  </button>
+
+  <p id="riderRatingStatus" class="mt-2 text-xs text-slate-400"></p>
+</div>
+        
 </div>
 
     </div>
@@ -564,6 +585,27 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
       إنهاء الرحلة
     </button>
   </div>
+
+<!-- Driver rates rider -->
+<div id="driverRatingBox" class="mt-4 hidden rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+  <p class="text-sm font-semibold">قيّم الراكب</p>
+
+  <div id="driverRatingStars" class="mt-3 flex flex-wrap gap-2">
+    <button type="button" class="driverStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="1">1 ⭐</button>
+    <button type="button" class="driverStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="2">2 ⭐</button>
+    <button type="button" class="driverStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="3">3 ⭐</button>
+    <button type="button" class="driverStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="4">4 ⭐</button>
+    <button type="button" class="driverStarBtn rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm" data-score="5">5 ⭐</button>
+  </div>
+
+  <button id="submitDriverRatingBtn"
+    class="mt-3 w-full rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-semibold py-3">
+    إرسال تقييم الراكب
+  </button>
+
+  <p id="driverRatingStatus" class="mt-2 text-xs text-slate-400"></p>
+</div>
+    
 </div>
   
 </div>
