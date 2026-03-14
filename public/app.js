@@ -216,6 +216,10 @@ onAuthStateChanged(auth, async (user) => {
 const profileBox = document.getElementById("profileBox");
 const profileName = document.getElementById("profileName");
 const profilePhone = document.getElementById("profilePhone");
+const profileUpdateBox = document.getElementById("profileUpdateBox");
+const driverUpdateFields = document.getElementById("driverUpdateFields");
+const driverDocumentUpdateHint = document.getElementById("driverDocumentUpdateHint");
+const driverUpdateDocumentsFields = document.getElementById("driverUpdateDocumentsFields");
 const driverCarFields = document.getElementById("driverCarFields");
 const carPlate = document.getElementById("carPlate");
 const carModel = document.getElementById("carModel");
@@ -272,6 +276,17 @@ if (isDriver) {
   driverPrivateFields?.classList.add("hidden");
 }
 
+profileUpdateBox?.classList.remove("hidden");
+
+if (isDriver) {
+  driverUpdateFields?.classList.remove("hidden");
+  driverDocumentUpdateHint?.classList.remove("hidden");
+} else {
+  driverUpdateFields?.classList.add("hidden");
+  driverDocumentUpdateHint?.classList.add("hidden");
+  driverUpdateDocumentsFields?.classList.add("hidden");
+}
+    
 if (carPlate) carPlate.value = profile.carPlate || "";
 if (carModel) carModel.value = profile.carModel || "";
 if (carColor) carColor.value = profile.carColor || "";
@@ -827,6 +842,77 @@ async function getPrivateDriverData(uid) {
 
   if (!snap.exists()) return null;
   return snap.data();
+}
+
+async function submitProfileUpdateRequest(uid, role) {
+  const statusEl = document.getElementById("profileUpdateStatus");
+
+  const reason = document.getElementById("profileUpdateReason")?.value?.trim() || "";
+  const name = document.getElementById("updateName")?.value?.trim() || "";
+  const phone = document.getElementById("updatePhone")?.value?.trim() || "";
+
+  const carPlate = document.getElementById("updateCarPlate")?.value?.trim() || "";
+  const carModel = document.getElementById("updateCarModel")?.value?.trim() || "";
+  const carColor = document.getElementById("updateCarColor")?.value?.trim() || "";
+
+  const nationalIdUrl = document.getElementById("updateNationalIdUrl")?.value?.trim() || "";
+  const driverLicenseUrl = document.getElementById("updateDriverLicenseUrl")?.value?.trim() || "";
+  const vehicleLicenseUrl = document.getElementById("updateVehicleLicenseUrl")?.value?.trim() || "";
+  const selfieUrl = document.getElementById("updateSelfieUrl")?.value?.trim() || "";
+
+  if (!reason) {
+    if (statusEl) statusEl.textContent = "سبب طلب التحديث إجباري.";
+    return;
+  }
+
+  if (phone && !isValidEgyptPhone(phone)) {
+    if (statusEl) statusEl.textContent = "رقم الموبايل الجديد غير صحيح.";
+    return;
+  }
+
+  const updatedFields = {};
+  if (name) updatedFields.name = name;
+  if (phone) updatedFields.phone = phone;
+
+  if (role === "driver") {
+    if (carPlate) updatedFields.carPlate = carPlate;
+    if (carModel) updatedFields.carModel = carModel;
+    if (carColor) updatedFields.carColor = carColor;
+  }
+
+  const updatedPrivateFields = {};
+
+  const documentsRequired = role === "driver" && isDocumentUpdateReason(reason);
+
+  if (documentsRequired) {
+    if (!isDriveUrl(nationalIdUrl) || !isDriveUrl(driverLicenseUrl) || !isDriveUrl(vehicleLicenseUrl) || !isDriveUrl(selfieUrl)) {
+      if (statusEl) statusEl.textContent = "بسبب نوع التعديل، يجب إدخال روابط Google Drive الجديدة للمستندات.";
+      return;
+    }
+
+    updatedPrivateFields.nationalIdImage = nationalIdUrl;
+    updatedPrivateFields.driverLicenseImage = driverLicenseUrl;
+    updatedPrivateFields.vehicleLicenseImage = vehicleLicenseUrl;
+    updatedPrivateFields.selfieImage = selfieUrl;
+  }
+
+  if (Object.keys(updatedFields).length === 0 && Object.keys(updatedPrivateFields).length === 0) {
+    if (statusEl) statusEl.textContent = "أدخل على الأقل بيانًا واحدًا تريد تعديله.";
+    return;
+  }
+
+  await addDoc(collection(db, "profile_update_requests"), {
+    uid,
+    role,
+    requestStatus: "pending",
+    requestType: documentsRequired ? "documents_update" : "profile_update",
+    reason,
+    updatedFields,
+    updatedPrivateFields,
+    createdAt: serverTimestamp()
+  });
+
+  if (statusEl) statusEl.textContent = "تم إرسال طلب التحديث للمراجعة ✅";
 }
 
 async function updateDriverLocation(uid) {
@@ -1785,6 +1871,20 @@ function isDriveUrl(url) {
   return String(url || "").includes("drive.google.com");
 }
 
+function isDocumentUpdateReason(reason) {
+  const r = String(reason || "").trim();
+
+  return (
+    r.includes("بطاقة") ||
+    r.includes("البطاقة") ||
+    r.includes("رخصة") ||
+    r.includes("الرخصة") ||
+    r.includes("انتهاء") ||
+    r.includes("منتهية") ||
+    r.includes("تجديد")
+  );
+}
+
 function initVerificationWizard() {
   const els = getVerificationWizardEls();
   if (!els.title) return;
@@ -2160,4 +2260,37 @@ document.getElementById("pasteCarInside")?.addEventListener("click",()=>pasteFro
 
 document.getElementById("refreshAdminDriversBtn")?.addEventListener("click", async () => {
   await loadPendingDriverVerifications();
+});
+
+document.getElementById("toggleProfileUpdateBtn")?.addEventListener("click", () => {
+  const form = document.getElementById("profileUpdateForm");
+  if (!form) return;
+
+  form.classList.toggle("hidden");
+});
+
+document.getElementById("profileUpdateReason")?.addEventListener("input", () => {
+  const reason = document.getElementById("profileUpdateReason")?.value?.trim() || "";
+  const docsBox = document.getElementById("driverUpdateDocumentsFields");
+
+  if (isDocumentUpdateReason(reason)) {
+    docsBox?.classList.remove("hidden");
+  } else {
+    docsBox?.classList.add("hidden");
+  }
+});
+
+document.getElementById("submitProfileUpdateRequestBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const role = document.getElementById("roleLabel")?.textContent?.trim() || "rider";
+
+  try {
+    await submitProfileUpdateRequest(user.uid, role);
+    showAlert("تم إرسال طلب التحديث ✅", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل إرسال طلب التحديث.", "error");
+  }
 });
