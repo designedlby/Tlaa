@@ -964,7 +964,7 @@ async function loadMyLatestProfileUpdateRequest(uid) {
 
     if (status === "pending") {
       if (stateDot) stateDot.classList.add("bg-yellow-400");
-      if (stateTitle) stateTitle.textContent = "🟡 طلب التحديث قيد المراجعة";
+      if (stateTitle) stateTitle.textContent = "طلب التحديث قيد المراجعة";
       if (stateText) stateText.textContent = "تم استلام طلب التحديث. يرجى الانتظار حتى 48 ساعة لمراجعته.";
       form.classList.add("hidden");
       toggleBtn.textContent = "قيد المراجعة";
@@ -975,7 +975,7 @@ async function loadMyLatestProfileUpdateRequest(uid) {
 
     if (status === "approved") {
       if (stateDot) stateDot.classList.add("bg-emerald-400");
-      if (stateTitle) stateTitle.textContent = "🟢 تمت الموافقة على طلب التحديث";
+      if (stateTitle) stateTitle.textContent = "تمت الموافقة على طلب التحديث";
       if (stateText) stateText.textContent = "تم اعتماد طلبك. يمكنك الآن تحديث البيانات أو إرسال طلب جديد عند الحاجة.";
       form.classList.add("hidden");
       toggleBtn.textContent = "فتح النموذج";
@@ -986,7 +986,7 @@ async function loadMyLatestProfileUpdateRequest(uid) {
 
     if (status === "rejected") {
       if (stateDot) stateDot.classList.add("bg-rose-400");
-      if (stateTitle) stateTitle.textContent = "🔴 تم رفض طلب التحديث";
+      if (stateTitle) stateTitle.textContent = "تم رفض طلب التحديث";
       if (stateText) stateText.textContent = "يمكنك تعديل البيانات وإرسال طلب جديد.";
       if (reason && stateReason) {
         stateReason.classList.remove("hidden");
