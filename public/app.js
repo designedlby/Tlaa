@@ -920,10 +920,12 @@ async function submitProfileUpdateRequest(uid, role) {
 
 async function loadMyLatestProfileUpdateRequest(uid) {
   const stateBox = document.getElementById("profileUpdateStateBox");
-  const stateDot = document.getElementById("profileUpdateStateDot");
-  const stateTitle = document.getElementById("profileUpdateStateTitle");
-  const stateText = document.getElementById("profileUpdateStateText");
-  const stateReason = document.getElementById("profileUpdateStateReason");
+const stateDot = document.getElementById("profileUpdateStateDot");
+const stateDotWrap = document.getElementById("profileUpdateStateDotWrap");
+const stateBadge = document.getElementById("profileUpdateStateBadge");
+const stateTitle = document.getElementById("profileUpdateStateTitle");
+const stateText = document.getElementById("profileUpdateStateText");
+const stateReason = document.getElementById("profileUpdateStateReason");
 
   const form = document.getElementById("profileUpdateForm");
   const toggleBtn = document.getElementById("toggleProfileUpdateBtn");
@@ -940,12 +942,21 @@ async function loadMyLatestProfileUpdateRequest(uid) {
 
     const snap = await getDocs(q);
 
-    // reset
+        // reset
     stateBox.classList.add("hidden");
     stateReason?.classList.add("hidden");
 
     if (stateDot) {
       stateDot.classList.remove("bg-yellow-400", "bg-emerald-400", "bg-rose-400", "bg-slate-400");
+    }
+
+    if (stateDotWrap) {
+      stateDotWrap.className = "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-yellow-500/15 ring-1 ring-yellow-500/20";
+    }
+
+    if (stateBadge) {
+      stateBadge.className = "inline-flex items-center gap-2 rounded-full bg-yellow-500/15 px-2.5 py-1 text-[11px] font-semibold text-yellow-300 ring-1 ring-yellow-500/25";
+      stateBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-current"></span><span>قيد المراجعة</span>`;
     }
 
     // لو لا يوجد أي طلبات سابقة
@@ -962,8 +973,12 @@ async function loadMyLatestProfileUpdateRequest(uid) {
 
     stateBox.classList.remove("hidden");
 
-    if (status === "pending") {
+        if (status === "pending") {
       if (stateDot) stateDot.classList.add("bg-yellow-400");
+      if (stateBadge) {
+        stateBadge.className = "inline-flex items-center gap-2 rounded-full bg-yellow-500/15 px-2.5 py-1 text-[11px] font-semibold text-yellow-300 ring-1 ring-yellow-500/25";
+        stateBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-current"></span><span>قيد المراجعة</span>`;
+      }
       if (stateTitle) stateTitle.textContent = "طلب التحديث قيد المراجعة";
       if (stateText) stateText.textContent = "تم استلام طلب التحديث. يرجى الانتظار حتى 48 ساعة لمراجعته.";
       form.classList.add("hidden");
@@ -973,10 +988,17 @@ async function loadMyLatestProfileUpdateRequest(uid) {
       return;
     }
 
-    if (status === "approved") {
+        if (status === "approved") {
       if (stateDot) stateDot.classList.add("bg-emerald-400");
+      if (stateDotWrap) {
+        stateDotWrap.className = "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 ring-1 ring-emerald-500/20";
+      }
+      if (stateBadge) {
+        stateBadge.className = "inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 ring-1 ring-emerald-500/25";
+        stateBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-current"></span><span>تمت الموافقة</span>`;
+      }
       if (stateTitle) stateTitle.textContent = "تمت الموافقة على طلب التحديث";
-      if (stateText) stateText.textContent = "تم اعتماد طلبك. يمكنك الآن تحديث البيانات أو إرسال طلب جديد عند الحاجة.";
+      if (stateText) stateText.textContent = "تم اعتماد طلبك. يمكنك الآن إرسال طلب جديد عند الحاجة.";
       form.classList.add("hidden");
       toggleBtn.textContent = "فتح النموذج";
       toggleBtn.disabled = false;
@@ -984,8 +1006,15 @@ async function loadMyLatestProfileUpdateRequest(uid) {
       return;
     }
 
-    if (status === "rejected") {
+        if (status === "rejected") {
       if (stateDot) stateDot.classList.add("bg-rose-400");
+      if (stateDotWrap) {
+        stateDotWrap.className = "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-rose-500/15 ring-1 ring-rose-500/20";
+      }
+      if (stateBadge) {
+        stateBadge.className = "inline-flex items-center gap-2 rounded-full bg-rose-500/15 px-2.5 py-1 text-[11px] font-semibold text-rose-300 ring-1 ring-rose-500/25";
+        stateBadge.innerHTML = `<span class="h-2 w-2 rounded-full bg-current"></span><span>مرفوض</span>`;
+      }
       if (stateTitle) stateTitle.textContent = "تم رفض طلب التحديث";
       if (stateText) stateText.textContent = "يمكنك تعديل البيانات وإرسال طلب جديد.";
       if (reason && stateReason) {
@@ -2098,11 +2127,13 @@ await loadDriverVerificationState(user.uid);
 
 async function loadDriverVerificationState(uid) {
   const stateBox = document.getElementById("verificationStateBox");
-  const title = document.getElementById("verificationStateTitle");
-  const text = document.getElementById("verificationStateText");
-  const reason = document.getElementById("verificationStateReason");
-  const dot = document.getElementById("verificationStateDot");
-  const wizard = document.getElementById("driverVerificationWizard");
+const title = document.getElementById("verificationStateTitle");
+const text = document.getElementById("verificationStateText");
+const reason = document.getElementById("verificationStateReason");
+const dot = document.getElementById("verificationStateDot");
+const dotWrap = document.getElementById("verificationStateDotWrap");
+const badge = document.getElementById("verificationStateBadge");
+const wizard = document.getElementById("driverVerificationWizard");
 
   try {
     const ref = doc(db, "users_private", uid);
@@ -2117,12 +2148,21 @@ async function loadDriverVerificationState(uid) {
       rejectionReason = data.rejectionReason || "";
     }
 
-    // reset
+        // reset
     stateBox?.classList.add("hidden");
     reason?.classList.add("hidden");
 
     if (dot) {
       dot.classList.remove("bg-yellow-400", "bg-emerald-400", "bg-rose-400", "bg-slate-400");
+    }
+
+    if (dotWrap) {
+      dotWrap.className = "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-yellow-500/15 ring-1 ring-yellow-500/20";
+    }
+
+    if (badge) {
+      badge.className = "inline-flex items-center gap-2 rounded-full bg-yellow-500/15 px-2.5 py-1 text-[11px] font-semibold text-yellow-300 ring-1 ring-yellow-500/25";
+      badge.innerHTML = `<span class="h-2 w-2 rounded-full bg-current"></span><span>قيد المراجعة</span>`;
     }
 
     // الحالة 1: لم يتم الإرسال بعد
@@ -2133,33 +2173,51 @@ async function loadDriverVerificationState(uid) {
     }
 
     // الحالة 2: قيد المراجعة
-    if (status === "pending") {
+        if (status === "pending") {
       wizard?.classList.add("hidden");
       stateBox?.classList.remove("hidden");
 
       if (dot) dot.classList.add("bg-yellow-400");
+      if (badge) {
+        badge.className = "inline-flex items-center gap-2 rounded-full bg-yellow-500/15 px-2.5 py-1 text-[11px] font-semibold text-yellow-300 ring-1 ring-yellow-500/25";
+        badge.innerHTML = `<span class="h-2 w-2 rounded-full bg-current"></span><span>قيد المراجعة</span>`;
+      }
       if (title) title.textContent = "حسابك قيد المراجعة";
       if (text) text.textContent = "تم استلام المستندات بنجاح. لا يمكنك قبول الرحلات حتى انتهاء المراجعة.";
       return;
     }
 
     // الحالة 3: موثق
-    if (status === "approved") {
+        if (status === "approved") {
       wizard?.classList.add("hidden");
       stateBox?.classList.remove("hidden");
 
       if (dot) dot.classList.add("bg-emerald-400");
-      if (title) title.textContent = "حسابك موثق";
+      if (dotWrap) {
+        dotWrap.className = "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 ring-1 ring-emerald-500/20";
+      }
+      if (badge) {
+        badge.className = "inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 ring-1 ring-emerald-500/25";
+        badge.innerHTML = `<span class="h-2 w-2 rounded-full bg-current"></span><span>موثق</span>`;
+      }
+      if (title) title.textContent = "تم توثيق حسابك";
       if (text) text.textContent = "تم توثيق حساب السائق بنجاح. يمكنك الآن استقبال وقبول الرحلات.";
       return;
     }
 
     // الحالة 4: مرفوض
-    if (status === "rejected") {
+        if (status === "rejected") {
       wizard?.classList.remove("hidden");
       stateBox?.classList.remove("hidden");
 
       if (dot) dot.classList.add("bg-rose-400");
+      if (dotWrap) {
+        dotWrap.className = "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-rose-500/15 ring-1 ring-rose-500/20";
+      }
+      if (badge) {
+        badge.className = "inline-flex items-center gap-2 rounded-full bg-rose-500/15 px-2.5 py-1 text-[11px] font-semibold text-rose-300 ring-1 ring-rose-500/25";
+        badge.innerHTML = `<span class="h-2 w-2 rounded-full bg-current"></span><span>مرفوض</span>`;
+      }
       if (title) title.textContent = "تم رفض التوثيق";
       if (text) text.textContent = "يرجى مراجعة البيانات أو الروابط وإعادة الإرسال مرة أخرى.";
 
