@@ -730,33 +730,36 @@ async function submitTripRating(tripId, byRole, score) {
     throw new Error("Trip is not completed yet");
   }
 
+  let ratingDocId = "";
+  let targetUid = "";
+
   if (byRole === "rider") {
     if (trip.riderId !== currentUser.uid) throw new Error("Unauthorized");
-    if (trip.riderRated) throw new Error("Already rated");
-
-    await updateDoc(tripRef, {
-      riderRated: true,
-      riderRating: score,
-      riderRatedAt: serverTimestamp()
-    });
-
-    return;
-  }
-
-  if (byRole === "driver") {
+    ratingDocId = `${tripId}_rider`;
+    targetUid = trip.driverId || "";
+  } else if (byRole === "driver") {
     if (trip.driverId !== currentUser.uid) throw new Error("Unauthorized");
-    if (trip.driverRated) throw new Error("Already rated");
-
-    await updateDoc(tripRef, {
-      driverRated: true,
-      driverRating: score,
-      driverRatedAt: serverTimestamp()
-    });
-
-    return;
+    ratingDocId = `${tripId}_driver`;
+    targetUid = trip.riderId || "";
+  } else {
+    throw new Error("Invalid role");
   }
 
-  throw new Error("Invalid role");
+  const ratingRef = doc(db, "trip_ratings", ratingDocId);
+  const ratingSnap = await getDoc(ratingRef);
+
+  if (ratingSnap.exists()) {
+    throw new Error("Already rated");
+  }
+
+  await setDoc(ratingRef, {
+    tripId,
+    byRole,
+    raterUid: currentUser.uid,
+    targetUid,
+    score,
+    createdAt: serverTimestamp()
+  });
 }
 
 function daysUntil(dateStr) {
@@ -1686,13 +1689,20 @@ if (riderRatingStatus) riderRatingStatus.textContent = "";
 submitRiderRatingBtn?.setAttribute("data-trip", docSnap.id);
 
 if (status === "completed") {
-  if (!t.riderRated) {
-    riderRatingBox?.classList.remove("hidden");
-  } else {
-    riderRatingBox?.classList.remove("hidden");
-    if (riderRatingStatus) {
-      riderRatingStatus.textContent = `تم إرسال تقييمك للسائق ✅ (${t.riderRating || "-"}/5)`;
+  riderRatingBox?.classList.remove("hidden");
+
+  try {
+    const ratingRef = doc(db, "trip_ratings", `${docSnap.id}_rider`);
+    const ratingSnap = await getDoc(ratingRef);
+
+    if (ratingSnap.exists()) {
+      const ratingData = ratingSnap.data();
+      if (riderRatingStatus) {
+        riderRatingStatus.textContent = `تم إرسال تقييمك للسائق ✅ (${ratingData.score || "-"}/5)`;
+      }
     }
+  } catch (e) {
+    console.error(e);
   }
 }
   }, (err) => {
@@ -1859,13 +1869,20 @@ if (driverRatingStatus) driverRatingStatus.textContent = "";
 submitDriverRatingBtn?.setAttribute("data-trip", tripId);
 
 if (status === "completed") {
-  if (!t.driverRated) {
-    driverRatingBox?.classList.remove("hidden");
-  } else {
-    driverRatingBox?.classList.remove("hidden");
-    if (driverRatingStatus) {
-      driverRatingStatus.textContent = `تم إرسال تقييمك للراكب ✅ (${t.driverRating || "-"}/5)`;
+  driverRatingBox?.classList.remove("hidden");
+
+  try {
+    const ratingRef = doc(db, "trip_ratings", `${tripId}_driver`);
+    const ratingSnap = await getDoc(ratingRef);
+
+    if (ratingSnap.exists()) {
+      const ratingData = ratingSnap.data();
+      if (driverRatingStatus) {
+        driverRatingStatus.textContent = `تم إرسال تقييمك للراكب ✅ (${ratingData.score || "-"}/5)`;
+      }
     }
+  } catch (e) {
+    console.error(e);
   }
 }
     
