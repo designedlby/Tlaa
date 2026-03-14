@@ -2050,7 +2050,7 @@ async function loadDriverVerificationState(uid) {
       stateBox?.classList.remove("hidden");
 
       if (dot) dot.classList.add("bg-yellow-400");
-      if (title) title.textContent = "🟡 حسابك قيد المراجعة";
+      if (title) title.textContent = "حسابك قيد المراجعة";
       if (text) text.textContent = "تم استلام المستندات بنجاح. لا يمكنك قبول الرحلات حتى انتهاء المراجعة.";
       return;
     }
@@ -2061,7 +2061,7 @@ async function loadDriverVerificationState(uid) {
       stateBox?.classList.remove("hidden");
 
       if (dot) dot.classList.add("bg-emerald-400");
-      if (title) title.textContent = "🟢 حسابك موثق";
+      if (title) title.textContent = "حسابك موثق";
       if (text) text.textContent = "تم توثيق حساب السائق بنجاح. يمكنك الآن استقبال وقبول الرحلات.";
       return;
     }
@@ -2072,7 +2072,7 @@ async function loadDriverVerificationState(uid) {
       stateBox?.classList.remove("hidden");
 
       if (dot) dot.classList.add("bg-rose-400");
-      if (title) title.textContent = "🔴 تم رفض التوثيق";
+      if (title) title.textContent = "تم رفض التوثيق";
       if (text) text.textContent = "يرجى مراجعة البيانات أو الروابط وإعادة الإرسال مرة أخرى.";
 
       if (rejectionReason && reason) {
