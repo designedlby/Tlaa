@@ -568,6 +568,87 @@ class="mt-6 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 hidden">
     </p>
   </div>
 </div>
+
+<!-- Request Profile Update -->
+<div id="profileUpdateBox" class="mt-4 hidden rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <p class="text-sm font-semibold">طلب تحديث البيانات</p>
+      <p class="mt-1 text-xs text-slate-400">
+        لا يتم اعتماد أي تعديل إلا بعد موافقة الأدمن.
+      </p>
+    </div>
+
+    <button id="toggleProfileUpdateBtn"
+      class="rounded-xl bg-white/10 hover:bg-white/15 ring-1 ring-white/10 px-4 py-2 text-xs font-semibold text-white">
+      فتح النموذج
+    </button>
+  </div>
+
+  <div id="profileUpdateForm" class="mt-4 hidden grid gap-3">
+
+    <textarea id="profileUpdateReason"
+      class="min-h-[90px] w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+      placeholder="اكتب سبب طلب التحديث بشكل واضح (إجباري)"></textarea>
+
+    <input id="updateName"
+      class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+      placeholder="الاسم الجديد (اختياري)" />
+
+    <input id="updatePhone" inputmode="numeric"
+      class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+      placeholder="رقم الموبايل الجديد (اختياري)" />
+
+    <!-- Driver extra update fields -->
+    <div id="driverUpdateFields" class="hidden grid gap-3">
+      <input id="updateCarPlate"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="رقم العربية / اللوحة الجديد (اختياري)" />
+
+      <input id="updateCarModel"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="نوع العربية الجديد (اختياري)" />
+
+      <input id="updateCarColor"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="لون العربية الجديد (اختياري)" />
+    </div>
+
+    <!-- Driver document update trigger -->
+    <div id="driverDocumentUpdateHint" class="hidden rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+      <p class="text-xs text-slate-300 leading-relaxed">
+        إذا كان سبب التعديل متعلقًا بانتهاء البطاقة أو الرخص أو تغييرها،
+        فيجب إعادة إدخال روابط المستندات الجديدة.
+      </p>
+    </div>
+
+    <!-- Driver document update fields -->
+    <div id="driverUpdateDocumentsFields" class="hidden grid gap-3">
+      <input id="updateNationalIdUrl"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="رابط البطاقة الجديدة (Google Drive)" />
+
+      <input id="updateDriverLicenseUrl"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="رابط رخصة القيادة الجديدة (Google Drive)" />
+
+      <input id="updateVehicleLicenseUrl"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="رابط رخصة السيارة الجديدة (Google Drive)" />
+
+      <input id="updateSelfieUrl"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="رابط السيلفي الجديد (Google Drive)" />
+    </div>
+
+    <button id="submitProfileUpdateRequestBtn"
+      class="w-full rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-semibold py-3">
+      إرسال طلب التحديث
+    </button>
+
+    <p id="profileUpdateStatus" class="text-xs text-slate-400"></p>
+  </div>
+</div>
           
           <button id="logoutBtn"
             class="mt-4 w-full rounded-2xl bg-rose-500/90 hover:bg-rose-500 text-white font-semibold py-3">
