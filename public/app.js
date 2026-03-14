@@ -332,6 +332,7 @@ if (profile.role === "admin") {
   initVerificationWizard();
   watchDriverCurrentTrip(user.uid);
   await loadMyLatestProfileUpdateRequest(user.uid);
+  initRatingWidgets();
 
 } else {
 
@@ -342,6 +343,7 @@ if (profile.role === "admin") {
   initMapOnce();
   watchMyLatestTrip(user.uid);
   await loadMyLatestProfileUpdateRequest(user.uid);
+  initRatingWidgets();
 }
   } catch (e) {
     console.error(e);
@@ -678,6 +680,83 @@ function statusBadge(status) {
       <span>${item.label}</span>
     </span>
   `;
+}
+
+function highlightRatingButtons(buttonSelector, selectedValue) {
+  document.querySelectorAll(buttonSelector).forEach((btn) => {
+    const score = Number(btn.getAttribute("data-score"));
+    btn.classList.remove("bg-indigo-500", "text-slate-950", "font-semibold");
+    btn.classList.add("bg-white/10");
+
+    if (score === selectedValue) {
+      btn.classList.remove("bg-white/10");
+      btn.classList.add("bg-indigo-500", "text-slate-950", "font-semibold");
+    }
+  });
+}
+
+function initRatingWidgets() {
+  if (ratingWidgetsInitialized) return;
+  ratingWidgetsInitialized = true;
+
+  document.querySelectorAll(".riderStarBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedRiderRating = Number(btn.getAttribute("data-score")) || 0;
+      highlightRatingButtons(".riderStarBtn", selectedRiderRating);
+    });
+  });
+
+  document.querySelectorAll(".driverStarBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedDriverRating = Number(btn.getAttribute("data-score")) || 0;
+      highlightRatingButtons(".driverStarBtn", selectedDriverRating);
+    });
+  });
+}
+
+async function submitTripRating(tripId, byRole, score) {
+  const tripRef = doc(db, "trips", tripId);
+  const tripSnap = await getDoc(tripRef);
+
+  if (!tripSnap.exists()) {
+    throw new Error("Trip not found");
+  }
+
+  const trip = tripSnap.data();
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("Not authenticated");
+
+  if (trip.status !== "completed") {
+    throw new Error("Trip is not completed yet");
+  }
+
+  if (byRole === "rider") {
+    if (trip.riderId !== currentUser.uid) throw new Error("Unauthorized");
+    if (trip.riderRated) throw new Error("Already rated");
+
+    await updateDoc(tripRef, {
+      riderRated: true,
+      riderRating: score,
+      riderRatedAt: serverTimestamp()
+    });
+
+    return;
+  }
+
+  if (byRole === "driver") {
+    if (trip.driverId !== currentUser.uid) throw new Error("Unauthorized");
+    if (trip.driverRated) throw new Error("Already rated");
+
+    await updateDoc(tripRef, {
+      driverRated: true,
+      driverRating: score,
+      driverRatedAt: serverTimestamp()
+    });
+
+    return;
+  }
+
+  throw new Error("Invalid role");
 }
 
 function daysUntil(dateStr) {
@@ -1418,12 +1497,18 @@ document.getElementById("useMyLocationBtn")?.addEventListener("click", async () 
 // ========== Rider Realtime: watch latest trip ==========
 let unsubscribeMyTrip = null;
 let currentDriverVerification = { ok: true, issues: [] };
+let selectedRiderRating = 0;
+let selectedDriverRating = 0;
+let ratingWidgetsInitialized = false;
 
 function watchMyLatestTrip(riderId) {
   const info = document.getElementById("myTripInfo");
   const cancelBtn = document.getElementById("cancelTripBtn");
   const requestBtn = document.getElementById("requestCancelBtn");
-
+  const riderRatingBox = document.getElementById("riderRatingBox");
+const riderRatingStatus = document.getElementById("riderRatingStatus");
+const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
+  
   if (unsubscribeMyTrip) unsubscribeMyTrip();
 
   const q = query(
@@ -1438,7 +1523,8 @@ function watchMyLatestTrip(riderId) {
       if (info) info.textContent = "لا يوجد طلب حاليًا.";
       cancelBtn?.classList.add("hidden");
       requestBtn?.classList.add("hidden");
-      return;
+riderRatingBox?.classList.add("hidden");
+return;
     }
 
     const docSnap = snap.docs[0];
@@ -1593,6 +1679,22 @@ else {
 // خزّن tripId في الأزرار
 cancelBtn?.setAttribute("data-trip", docSnap.id);
 requestBtn?.setAttribute("data-trip", docSnap.id);
+
+// Rating UI for rider after completed
+riderRatingBox?.classList.add("hidden");
+if (riderRatingStatus) riderRatingStatus.textContent = "";
+submitRiderRatingBtn?.setAttribute("data-trip", docSnap.id);
+
+if (status === "completed") {
+  if (!t.riderRated) {
+    riderRatingBox?.classList.remove("hidden");
+  } else {
+    riderRatingBox?.classList.remove("hidden");
+    if (riderRatingStatus) {
+      riderRatingStatus.textContent = `تم إرسال تقييمك للسائق ✅ (${t.riderRating || "-"}/5)`;
+    }
+  }
+}
   }, (err) => {
     console.error(err);
     showAlert("مشكلة في متابعة الرحلة الحالية (Realtime).", "error");
@@ -1608,7 +1710,10 @@ function watchDriverCurrentTrip(driverId) {
   const approveBtn = document.getElementById("approveCancelBtn");
   const completeBtn = document.getElementById("completeTripBtn");
   const startBtn = document.getElementById("startTripBtn"); // مش هنستخدمه دلوقتي (اختياري)
-
+  const driverRatingBox = document.getElementById("driverRatingBox");
+const driverRatingStatus = document.getElementById("driverRatingStatus");
+const submitDriverRatingBtn = document.getElementById("submitDriverRatingBtn");
+  
   if (unsubscribeDriverTrip) unsubscribeDriverTrip();
 
   const q = query(
@@ -1624,7 +1729,8 @@ function watchDriverCurrentTrip(driverId) {
       approveBtn?.classList.add("hidden");
       completeBtn?.classList.add("hidden");
       startBtn?.classList.add("hidden");
-      return;
+driverRatingBox?.classList.add("hidden");
+return;
     }
 
     const docSnap = snap.docs[0];
@@ -1746,6 +1852,23 @@ if (info) {
     approveBtn?.setAttribute("data-trip", tripId);
     completeBtn?.setAttribute("data-trip", tripId);
     startBtn?.setAttribute("data-trip", tripId);
+
+    // Rating UI for driver after completed
+driverRatingBox?.classList.add("hidden");
+if (driverRatingStatus) driverRatingStatus.textContent = "";
+submitDriverRatingBtn?.setAttribute("data-trip", tripId);
+
+if (status === "completed") {
+  if (!t.driverRated) {
+    driverRatingBox?.classList.remove("hidden");
+  } else {
+    driverRatingBox?.classList.remove("hidden");
+    if (driverRatingStatus) {
+      driverRatingStatus.textContent = `تم إرسال تقييمك للراكب ✅ (${t.driverRating || "-"}/5)`;
+    }
+  }
+}
+    
   }, (err) => {
     console.error(err);
     showAlert("مشكلة في متابعة رحلة السائق الحالية (Realtime).", "error");
@@ -2892,4 +3015,42 @@ document.getElementById("submitProfileUpdateRequestBtn")?.addEventListener("clic
 
 document.getElementById("refreshUpdateRequestsBtn")?.addEventListener("click", async () => {
   await loadPendingProfileUpdateRequests();
+});
+
+document.getElementById("submitRiderRatingBtn")?.addEventListener("click", async () => {
+  const tripId = document.getElementById("submitRiderRatingBtn")?.getAttribute("data-trip");
+  const statusEl = document.getElementById("riderRatingStatus");
+
+  if (!tripId) return;
+  if (!selectedRiderRating || selectedRiderRating < 1 || selectedRiderRating > 5) {
+    if (statusEl) statusEl.textContent = "اختر تقييمًا من 1 إلى 5 أولًا.";
+    return;
+  }
+
+  try {
+    await submitTripRating(tripId, "rider", selectedRiderRating);
+    if (statusEl) statusEl.textContent = `تم إرسال تقييمك للسائق ✅ (${selectedRiderRating}/5)`;
+  } catch (e) {
+    console.error(e);
+    if (statusEl) statusEl.textContent = "فشل إرسال تقييم السائق.";
+  }
+});
+
+document.getElementById("submitDriverRatingBtn")?.addEventListener("click", async () => {
+  const tripId = document.getElementById("submitDriverRatingBtn")?.getAttribute("data-trip");
+  const statusEl = document.getElementById("driverRatingStatus");
+
+  if (!tripId) return;
+  if (!selectedDriverRating || selectedDriverRating < 1 || selectedDriverRating > 5) {
+    if (statusEl) statusEl.textContent = "اختر تقييمًا من 1 إلى 5 أولًا.";
+    return;
+  }
+
+  try {
+    await submitTripRating(tripId, "driver", selectedDriverRating);
+    if (statusEl) statusEl.textContent = `تم إرسال تقييمك للراكب ✅ (${selectedDriverRating}/5)`;
+  } catch (e) {
+    console.error(e);
+    if (statusEl) statusEl.textContent = "فشل إرسال تقييم الراكب.";
+  }
 });
