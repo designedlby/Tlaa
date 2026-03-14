@@ -1643,20 +1643,68 @@ if (t.riderId) {
 
     if (riderSnap.exists()) {
       const r = riderSnap.data();
+
       const name = r.name ? escapeHtml(r.name) : "راكب";
       const phone = r.phone ? normalizePhone(r.phone) : "";
       const waPhone = r.phone ? phoneForWhatsApp(r.phone) : "";
 
-      riderTxt = ` | الراكب: ${name}`;
+      const phoneHtml = phone
+        ? `
+          <a class="inline-flex items-center gap-2 rounded-2xl bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
+             href="tel:${phone}">
+            <span>📞</span>
+            <span>${phone}</span>
+          </a>
+        `
+        : "";
 
-      if (phone) {
-        riderTxt += ` | 📞 <a class="underline text-emerald-300" href="tel:${phone}">${phone}</a>`;
-        riderTxt += ` | <a class="underline text-green-300" target="_blank" href="https://wa.me/${waPhone}">واتساب</a>`;
-      }
+      const waHtml = waPhone
+        ? `
+          <a class="inline-flex items-center gap-2 rounded-2xl bg-green-500/15 px-3 py-2 text-xs font-semibold text-green-300 ring-1 ring-green-500/20 hover:bg-green-500/20"
+             target="_blank"
+             href="https://wa.me/${waPhone}">
+            <span>💬</span>
+            <span>واتساب</span>
+          </a>
+        `
+        : "";
+
+      riderTxt = `
+        <div class="mt-3 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-white">بيانات الراكب</div>
+              <div class="mt-1 text-xs text-slate-300 break-all">${name}</div>
+            </div>
+
+            <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 ring-1 ring-indigo-500/20">
+              <span class="h-2 w-2 rounded-full bg-current"></span>
+              <span>رحلتك الحالية</span>
+            </span>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            ${phoneHtml}
+            ${waHtml}
+          </div>
+        </div>
+      `;
     } else {
-      riderTxt = ` | Rider: ${t.riderId}`;
+      riderTxt = `
+        <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
+          تعذر تحميل بيانات الراكب.
+        </div>
+      `;
     }
   } catch (e) {
+    console.error(e);
+    riderTxt = `
+      <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
+        تعذر تحميل بيانات الراكب.
+      </div>
+    `;
+  }
+} catch (e) {
     console.error(e);
     riderTxt = ` | Rider: ${t.riderId}`;
   }
@@ -1666,11 +1714,20 @@ if (info) {
   info.innerHTML = `
     <div class="flex flex-wrap items-center gap-2">
       ${statusBadge(status)}
-      <span class="break-all">${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}</span>
-      <span>${kmTxt}</span>
-      <span>${priceTxt}</span>
     </div>
-    <div class="mt-2 break-all">${riderTxt}</div>
+
+    <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+      <div class="text-xs text-slate-400">خط الرحلة</div>
+      <div class="mt-1 text-sm font-semibold text-white break-all">
+        ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
+      </div>
+      <div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-300">
+        <span>${kmTxt}</span>
+        <span>${priceTxt}</span>
+      </div>
+    </div>
+
+    ${riderTxt}
   `;
 }
     
