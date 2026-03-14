@@ -1704,10 +1704,6 @@ if (t.riderId) {
       </div>
     `;
   }
-} catch (e) {
-    console.error(e);
-    riderTxt = ` | Rider: ${t.riderId}`;
-  }
 }
 
 if (info) {
