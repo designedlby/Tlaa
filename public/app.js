@@ -2274,62 +2274,144 @@ async function loadPendingDriverVerifications() {
       }
 
       const card = document.createElement("div");
-      card.className = "rounded-2xl bg-white/5 ring-1 ring-white/10 p-4";
+      card.className = "overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/95 to-slate-800/80 ring-1 ring-white/10 shadow-lg";
 
       card.innerHTML = `
-        <div class="grid gap-3">
-          <div>
-            <div class="text-sm font-semibold break-all">
-              ${escapeHtml(publicData.name || "بدون اسم")} 
-              <span class="text-xs text-slate-400">(${escapeHtml(uid)})</span>
-            </div>
-
-            <div class="mt-1 text-xs text-slate-300 break-all">
-              📞 ${escapeHtml(publicData.phone || "-")}
-              ${publicData.carModel ? ` | 🚐 ${escapeHtml(publicData.carModel)}` : ""}
-              ${publicData.carPlate ? ` | ${escapeHtml(publicData.carPlate)}` : ""}
-            </div>
+  <div class="p-4 sm:p-5">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="text-sm font-semibold text-white break-all">
+            ${escapeHtml(publicData.name || "بدون اسم")}
           </div>
 
-         <div class="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-  <div class="text-xs font-semibold text-white">بيانات المستندات النصية</div>
+          <span class="inline-flex items-center gap-2 rounded-full bg-yellow-500/15 px-2.5 py-1 text-[11px] font-semibold text-yellow-300 ring-1 ring-yellow-500/20">
+            <span class="h-2 w-2 rounded-full bg-current"></span>
+            <span>Pending Verification</span>
+          </span>
+        </div>
 
-  <div class="mt-2 grid gap-2 text-xs text-slate-300 break-all">
-    <div>رقم البطاقة: <b>${escapeHtml(privateData.nationalId || "-")}</b></div>
-    <div>انتهاء البطاقة: <b>${escapeHtml(privateData.nationalIdExpiry || "-")}</b></div>
-    <div>رقم/بيانات رخصة القيادة: <b>${escapeHtml(privateData.driverLicenseNumber || "-")}</b></div>
-    <div>انتهاء رخصة القيادة: <b>${escapeHtml(privateData.driverLicenseExpiry || "-")}</b></div>
-    <div>رقم/بيانات رخصة السيارة: <b>${escapeHtml(privateData.vehicleLicenseNumber || "-")}</b></div>
-    <div>انتهاء رخصة السيارة: <b>${escapeHtml(privateData.vehicleLicenseExpiry || "-")}</b></div>
-  </div>
-</div>
+        <div class="mt-2 text-xs text-slate-400 break-all">
+          UID: ${escapeHtml(uid)}
+        </div>
 
-          <div class="grid gap-2 text-xs text-slate-300 break-all">
-            <div>البطاقة: <a class="underline text-indigo-300" href="${privateData.nationalIdImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.nationalIdImage || "-"))}</a></div>
-            <div>رخصة القيادة: <a class="underline text-indigo-300" href="${privateData.driverLicenseImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.driverLicenseImage || "-"))}</a></div>
-            <div>رخصة السيارة: <a class="underline text-indigo-300" href="${privateData.vehicleLicenseImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.vehicleLicenseImage || "-"))}</a></div>
-            <div>السيلفي: <a class="underline text-indigo-300" href="${privateData.selfieImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.selfieImage || "-"))}</a></div>
-            <div>السيارة خارج: <a class="underline text-indigo-300" href="${privateData.carOutsideImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.carOutsideImage || "-"))}</a></div>
-            <div>السيارة داخل: <a class="underline text-indigo-300" href="${privateData.carInsideImage || "#"}" target="_blank">${escapeHtml(truncateUrl(privateData.carInsideImage || "-"))}</a></div>
+        <div class="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
+          <span class="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">
+            📞 ${escapeHtml(publicData.phone || "-")}
+          </span>
+          <span class="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">
+            🚐 ${escapeHtml(publicData.carModel || "-")}
+          </span>
+          <span class="rounded-full bg-white/5 px-2.5 py-1 ring-1 ring-white/10">
+            🔢 ${escapeHtml(publicData.carPlate || "-")}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 grid gap-3">
+      <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+        <div class="text-xs font-semibold text-white">بيانات المستندات النصية</div>
+
+        <div class="mt-3 grid gap-2 text-xs text-slate-300 break-all">
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            <span>رقم البطاقة</span>
+            <b>${escapeHtml(privateData.nationalId || "-")}</b>
           </div>
 
-          <div class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-            <input data-reason="${uid}"
-              class="rejectReasonInput w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
-              placeholder="سبب الرفض (اختياري)" />
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            <span>انتهاء البطاقة</span>
+            <b>${escapeHtml(privateData.nationalIdExpiry || "-")}</b>
+          </div>
 
-            <button data-approve="${uid}"
-              class="approveDriverBtn rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2">
-              قبول
-            </button>
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            <span>رخصة القيادة</span>
+            <b>${escapeHtml(privateData.driverLicenseNumber || "-")}</b>
+          </div>
 
-            <button data-reject="${uid}"
-              class="rejectDriverBtn rounded-xl bg-rose-500/90 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2">
-              رفض
-            </button>
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            <span>انتهاء رخصة القيادة</span>
+            <b>${escapeHtml(privateData.driverLicenseExpiry || "-")}</b>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            <span>رخصة السيارة</span>
+            <b>${escapeHtml(privateData.vehicleLicenseNumber || "-")}</b>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            <span>انتهاء رخصة السيارة</span>
+            <b>${escapeHtml(privateData.vehicleLicenseExpiry || "-")}</b>
           </div>
         </div>
-      `;
+      </div>
+
+      <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+        <div class="text-xs font-semibold text-white">روابط المستندات والصور</div>
+
+        <div class="mt-3 grid gap-2 text-xs text-slate-300 break-all">
+          <div class="rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            البطاقة:
+            <a class="ml-1 underline text-indigo-300" href="${privateData.nationalIdImage || "#"}" target="_blank">
+              ${escapeHtml(truncateUrl(privateData.nationalIdImage || "-"))}
+            </a>
+          </div>
+
+          <div class="rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            رخصة القيادة:
+            <a class="ml-1 underline text-indigo-300" href="${privateData.driverLicenseImage || "#"}" target="_blank">
+              ${escapeHtml(truncateUrl(privateData.driverLicenseImage || "-"))}
+            </a>
+          </div>
+
+          <div class="rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            رخصة السيارة:
+            <a class="ml-1 underline text-indigo-300" href="${privateData.vehicleLicenseImage || "#"}" target="_blank">
+              ${escapeHtml(truncateUrl(privateData.vehicleLicenseImage || "-"))}
+            </a>
+          </div>
+
+          <div class="rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            السيلفي:
+            <a class="ml-1 underline text-indigo-300" href="${privateData.selfieImage || "#"}" target="_blank">
+              ${escapeHtml(truncateUrl(privateData.selfieImage || "-"))}
+            </a>
+          </div>
+
+          <div class="rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            السيارة خارج:
+            <a class="ml-1 underline text-indigo-300" href="${privateData.carOutsideImage || "#"}" target="_blank">
+              ${escapeHtml(truncateUrl(privateData.carOutsideImage || "-"))}
+            </a>
+          </div>
+
+          <div class="rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5">
+            السيارة داخل:
+            <a class="ml-1 underline text-indigo-300" href="${privateData.carInsideImage || "#"}" target="_blank">
+              ${escapeHtml(truncateUrl(privateData.carInsideImage || "-"))}
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+        <input data-reason="${uid}"
+          class="rejectReasonInput w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-xs text-white outline-none focus:ring-2 focus:ring-rose-400"
+          placeholder="سبب الرفض (اختياري)" />
+
+        <button data-approve="${uid}"
+          class="approveDriverBtn rounded-2xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-3">
+          قبول التوثيق
+        </button>
+
+        <button data-reject="${uid}"
+          class="rejectDriverBtn rounded-2xl bg-rose-500/90 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-3">
+          رفض التوثيق
+        </button>
+      </div>
+    </div>
+  </div>
+`;
 
       list.appendChild(card);
     }
@@ -2434,77 +2516,96 @@ async function loadPendingProfileUpdateRequests() {
       }
 
       const updatedFieldsHtml = Object.entries(req.updatedFields || {})
-        .map(([key, value]) => `
-          <div class="text-xs text-slate-300 break-all">
-            <b>${escapeHtml(key)}</b>:
-            <span class="text-slate-500">${escapeHtml(String(publicData[key] || "-"))}</span>
-            →
-            <span class="text-emerald-300">${escapeHtml(String(value || "-"))}</span>
-          </div>
-        `).join("");
+  .map(([key, value]) => `
+    <div class="rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5 text-xs text-slate-300 break-all">
+      <div class="font-semibold text-white">${escapeHtml(key)}</div>
+      <div class="mt-1">
+        <span class="text-slate-500">${escapeHtml(String(publicData[key] || "-"))}</span>
+        <span class="mx-1 text-slate-400">→</span>
+        <span class="text-emerald-300">${escapeHtml(String(value || "-"))}</span>
+      </div>
+    </div>
+  `).join("");
 
       const updatedPrivateFieldsHtml = Object.entries(req.updatedPrivateFields || {})
-        .map(([key, value]) => `
-          <div class="text-xs text-slate-300 break-all">
-            <b>${escapeHtml(key)}</b>:
-            <span class="text-slate-500">${escapeHtml(String(privateData[key] || "-"))}</span>
-            →
-            <span class="text-emerald-300">${escapeHtml(String(value || "-"))}</span>
-          </div>
-        `).join("");
+  .map(([key, value]) => `
+    <div class="rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/5 text-xs text-slate-300 break-all">
+      <div class="font-semibold text-white">${escapeHtml(key)}</div>
+      <div class="mt-1">
+        <span class="text-slate-500">${escapeHtml(String(privateData[key] || "-"))}</span>
+        <span class="mx-1 text-slate-400">→</span>
+        <span class="text-emerald-300">${escapeHtml(String(value || "-"))}</span>
+      </div>
+    </div>
+  `).join("");
 
       const card = document.createElement("div");
-      card.className = "rounded-2xl bg-white/5 ring-1 ring-white/10 p-4";
+      card.className = "overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/95 to-slate-800/80 ring-1 ring-white/10 shadow-lg";
 
       card.innerHTML = `
-        <div class="grid gap-3">
-          <div>
-            <div class="text-sm font-semibold break-all">
-              ${escapeHtml(publicData.name || "بدون اسم")}
-              <span class="text-xs text-slate-400">(${escapeHtml(uid)})</span>
-            </div>
-
-            <div class="mt-1 text-xs text-slate-300">
-              النوع: <b>${escapeHtml(req.role || "-")}</b>
-              | نوع الطلب: <b>${escapeHtml(req.requestType || "-")}</b>
-            </div>
-
-            <div class="mt-2 text-xs text-slate-300 break-all">
-              <b>السبب:</b> ${escapeHtml(req.reason || "-")}
-            </div>
+  <div class="p-4 sm:p-5">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="text-sm font-semibold text-white break-all">
+            ${escapeHtml(publicData.name || "بدون اسم")}
           </div>
 
-          ${updatedFieldsHtml ? `
-            <div class="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-              <div class="text-xs font-semibold text-white">البيانات العامة المطلوبة للتعديل</div>
-              <div class="mt-2 grid gap-2">${updatedFieldsHtml}</div>
-            </div>
-          ` : ""}
+          <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 ring-1 ring-indigo-500/20">
+            <span class="h-2 w-2 rounded-full bg-current"></span>
+            <span>${escapeHtml(req.role || "-")}</span>
+          </span>
 
-          ${updatedPrivateFieldsHtml ? `
-            <div class="rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
-              <div class="text-xs font-semibold text-white">البيانات الخاصة المطلوبة للتعديل</div>
-              <div class="mt-2 grid gap-2">${updatedPrivateFieldsHtml}</div>
-            </div>
-          ` : ""}
+          <span class="inline-flex items-center gap-2 rounded-full bg-yellow-500/15 px-2.5 py-1 text-[11px] font-semibold text-yellow-300 ring-1 ring-yellow-500/20">
+            <span class="h-2 w-2 rounded-full bg-current"></span>
+            <span>${escapeHtml(req.requestType || "-")}</span>
+          </span>
+        </div>
 
-          <div class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-            <input data-update-reason="${requestId}"
-              class="updateRejectReasonInput w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2 text-xs"
-              placeholder="سبب الرفض (اختياري)" />
+        <div class="mt-2 text-xs text-slate-400 break-all">
+          UID: ${escapeHtml(uid)}
+        </div>
 
-            <button data-update-approve="${requestId}"
-              class="approveUpdateBtn rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2">
-              اعتماد التعديل
-            </button>
-
-            <button data-update-reject="${requestId}"
-              class="rejectUpdateBtn rounded-xl bg-rose-500/90 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2">
-              رفض التعديل
-            </button>
+        <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-xs font-semibold text-white">سبب طلب التحديث</div>
+          <div class="mt-2 text-xs leading-6 text-slate-300 break-all">
+            ${escapeHtml(req.reason || "-")}
           </div>
         </div>
-      `;
+      </div>
+    </div>
+
+    ${updatedFieldsHtml ? `
+      <div class="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+        <div class="text-xs font-semibold text-white">البيانات العامة المطلوبة للتعديل</div>
+        <div class="mt-3 grid gap-2">${updatedFieldsHtml}</div>
+      </div>
+    ` : ""}
+
+    ${updatedPrivateFieldsHtml ? `
+      <div class="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+        <div class="text-xs font-semibold text-white">البيانات الخاصة المطلوبة للتعديل</div>
+        <div class="mt-3 grid gap-2">${updatedPrivateFieldsHtml}</div>
+      </div>
+    ` : ""}
+
+    <div class="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+      <input data-update-reason="${requestId}"
+        class="updateRejectReasonInput w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-xs text-white outline-none focus:ring-2 focus:ring-rose-400"
+        placeholder="سبب الرفض (اختياري)" />
+
+      <button data-update-approve="${requestId}"
+        class="approveUpdateBtn rounded-2xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-3">
+        اعتماد التعديل
+      </button>
+
+      <button data-update-reject="${requestId}"
+        class="rejectUpdateBtn rounded-2xl bg-rose-500/90 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-3">
+        رفض التعديل
+      </button>
+    </div>
+  </div>
+`;
 
       list.appendChild(card);
     }
