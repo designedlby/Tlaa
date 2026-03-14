@@ -213,6 +213,34 @@ onAuthStateChanged(auth, async (user) => {
     roleLabel.textContent = profile.role || "rider";
     uidLabel.textContent = user.uid;
 
+    const profileRatingValue = document.getElementById("profileRatingValue");
+const profileRatingCount = document.getElementById("profileRatingCount");
+const profileRatingBadge = document.getElementById("profileRatingBadge");
+
+try {
+  const myRating = await getUserAverageRating(user.uid);
+
+  if (profileRatingValue) {
+    profileRatingValue.textContent = `${myRating.avg || 0} / 5`;
+  }
+
+  if (profileRatingCount) {
+    profileRatingCount.textContent = `(${myRating.count || 0})`;
+  }
+
+  if (profileRatingBadge) {
+    if ((myRating.count || 0) > 0) {
+      profileRatingBadge.className =
+        "inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-300 ring-1 ring-amber-500/20";
+    } else {
+      profileRatingBadge.className =
+        "inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-2 text-xs font-semibold text-slate-300 ring-1 ring-white/10";
+    }
+  }
+} catch (e) {
+  console.error(e);
+}
+    
 const profileBox = document.getElementById("profileBox");
 const profileName = document.getElementById("profileName");
 const profilePhone = document.getElementById("profilePhone");
