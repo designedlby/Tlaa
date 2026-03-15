@@ -384,8 +384,16 @@ renderTripPricingSummary(window.currentKmRoad);
 });
 
 async function createTrip(riderId) {
-  const pickup = document.getElementById("pickup")?.value?.trim();
-  const dropoff = document.getElementById("dropoff")?.value?.trim();
+  const pickup =
+  document.getElementById("pickup")?.value?.trim() ||
+  document.getElementById("pickupMapsInput")?.value?.trim() ||
+  (pickupLatLng ? `${pickupLatLng.lat.toFixed(6)}, ${pickupLatLng.lng.toFixed(6)}` : "");
+
+const dropoff =
+  document.getElementById("dropoff")?.value?.trim() ||
+  document.getElementById("dropoffMapsInput")?.value?.trim() ||
+  (dropoffLatLng ? `${dropoffLatLng.lat.toFixed(6)}, ${dropoffLatLng.lng.toFixed(6)}` : "");
+  
   const riderStatus = document.getElementById("riderStatus");
 
   const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
@@ -395,10 +403,10 @@ async function createTrip(riderId) {
   const returnDate = document.getElementById("returnDate")?.value || "";
   const tripNotes = document.getElementById("tripNotes")?.value?.trim() || "";
 
-  if (!pickup || !dropoff) {
-    if (riderStatus) riderStatus.textContent = "اكتب مكان الانطلاق والوجهة بشكل صحيح.";
-    return;
-  }
+  if (!pickupLatLng || !dropoffLatLng) {
+  if (riderStatus) riderStatus.textContent = "حدد مكان الانطلاق والوجهة من الخريطة أو البحث أولًا.";
+  return;
+}
 
   if (!passengerCount || passengerCount < 1 || passengerCount > 7) {
     if (riderStatus) riderStatus.textContent = "اختر عدد الركاب بشكل صحيح.";
