@@ -446,6 +446,10 @@ const dropoffLng = dropoffLatLng?.lng ?? null;
     driverId: null,
     pickup,
     dropoff,
+
+    pickupAddress: window.currentPickupAddress || pickup,
+dropoffAddress: window.currentDropoffAddress || dropoff,
+    
     pickupLat,
 pickupLng,
 dropoffLat,
@@ -524,20 +528,35 @@ snap.forEach((docSnap) => {
       { lat: t.pickupLat, lng: t.pickupLng }
     );
 
-    // ✅ مؤقتًا: لا تمنع الرحلة بسبب المسافة
-    nearbyTrips.push({
-      id: docSnap.id,
-      ...t,
-      kmFromDriver: Number(kmFromDriver.toFixed(1))
-    });
+    if (kmFromDriver <= 15) {
+      nearbyTrips.push({
+        id: docSnap.id,
+        ...t,
+        kmFromDriver: Number(kmFromDriver.toFixed(1)),
+        distancePriority: kmFromDriver <= 8 ? 1 : 2
+      });
+    }
   } else {
-    // fallback لو الإحداثيات مش موجودة
+    // لو الرحلة بلا إحداثيات لا نخفيها، لكن نجعلها آخر الأولوية
     nearbyTrips.push({
       id: docSnap.id,
       ...t,
-      kmFromDriver: null
+      kmFromDriver: null,
+      distancePriority: 3
     });
   }
+});
+
+nearbyTrips.sort((a, b) => {
+  const p1 = a.distancePriority ?? 99;
+  const p2 = b.distancePriority ?? 99;
+
+  if (p1 !== p2) return p1 - p2;
+
+  const d1 = a.kmFromDriver ?? 9999;
+  const d2 = b.kmFromDriver ?? 9999;
+
+  return d1 - d2;
 });
 
 if (nearbyTrips.length === 0) {
@@ -557,7 +576,7 @@ nearbyTrips.forEach((t) => {
 
     <div class="min-w-0">
       <div class="text-sm font-semibold break-all">
-  ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
+  ${escapeHtml(t.pickupAddress || t.pickup)} → ${escapeHtml(t.dropoffAddress || t.dropoff)}
 </div>
 
       <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300 break-words">
@@ -1367,39 +1386,68 @@ function updatePickModeLabel() {
   el.textContent = selecting === "pickup" ? "اختيار: Pickup" : "اختيار: Dropoff";
 }
 
-function setPickup(latlng, label = "") {
-  pickupLatLng = latlng;
-  selecting = "dropoff";
-  updatePickModeLabel();
+function shortPlaceName(fullText = "", lat = null, lng = null) {
+  const raw = String(fullText || "").trim();
 
-  if (!pickupMarker) pickupMarker = L.marker(latlng, { draggable: true }).addTo(map);
-  else pickupMarker.setLatLng(latlng);
+  if (!raw) {
+    if (lat != null && lng != null) {
+      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    }
+    return "مكان غير محدد";
+  }
 
-  pickupMarker.on("dragend", () => {
-    pickupLatLng = pickupMarker.getLatLng();
-    updateMetrics();
-  });
+  const parts = raw.split(",").map(s => s.trim()).filter(Boolean);
 
-  if (label) document.getElementById("pickupSearch") && (document.getElementById("pickupSearch").value = label);
-  map.setView(latlng, Math.max(map.getZoom(), 13));
+  if (parts.length >= 2) {
+    return `${parts[0]} - ${parts[1]}`;
+  }
+
+  return raw;
+}
+
+function setPickup(lat, lng, label = "", fullAddress = "") {
+  pickupLatLng = { lat, lng };
+
+  const displayName = shortPlaceName(label || fullAddress, lat, lng);
+  const addressText = String(fullAddress || label || "").trim();
+
+  const pickupInput = document.getElementById("pickup");
+  const pickupMapsInput = document.getElementById("pickupMapsInput");
+
+  if (pickupInput) pickupInput.value = displayName;
+  if (pickupMapsInput) pickupMapsInput.value = addressText || displayName;
+
+  window.currentPickupAddress = addressText || displayName;
+
+  if (pickupMarker) {
+    pickupMarker.setLatLng([lat, lng]);
+  } else if (window.map) {
+    pickupMarker = L.marker([lat, lng]).addTo(window.map);
+  }
+
   updateMetrics();
 }
 
-function setDropoff(latlng, label = "") {
-  dropoffLatLng = latlng;
-  selecting = "pickup";
-  updatePickModeLabel();
+function setDropoff(lat, lng, label = "", fullAddress = "") {
+  dropoffLatLng = { lat, lng };
 
-  if (!dropoffMarker) dropoffMarker = L.marker(latlng, { draggable: true }).addTo(map);
-  else dropoffMarker.setLatLng(latlng);
+  const displayName = shortPlaceName(label || fullAddress, lat, lng);
+  const addressText = String(fullAddress || label || "").trim();
 
-  dropoffMarker.on("dragend", () => {
-    dropoffLatLng = dropoffMarker.getLatLng();
-    updateMetrics();
-  });
+  const dropoffInput = document.getElementById("dropoff");
+  const dropoffMapsInput = document.getElementById("dropoffMapsInput");
 
-  if (label) document.getElementById("dropoffSearch") && (document.getElementById("dropoffSearch").value = label);
-  map.setView(latlng, Math.max(map.getZoom(), 13));
+  if (dropoffInput) dropoffInput.value = displayName;
+  if (dropoffMapsInput) dropoffMapsInput.value = addressText || displayName;
+
+  window.currentDropoffAddress = addressText || displayName;
+
+  if (dropoffMarker) {
+    dropoffMarker.setLatLng([lat, lng]);
+  } else if (window.map) {
+    dropoffMarker = L.marker([lat, lng]).addTo(window.map);
+  }
+
   updateMetrics();
 }
 
