@@ -1916,11 +1916,11 @@ const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
   if (unsubscribeMyTrip) unsubscribeMyTrip();
 
   const q = query(
-    collection(db, "trips"),
-    where("riderId", "==", riderId),
-    orderBy("createdAt", "desc"),
-    limit(1)
-  );
+  collection(db, "trips"),
+  where("riderId", "==", riderId),
+  where("status", "in", ["pending", "accepted", "cancel_requested", "waiting_return"]),
+  limit(1)
+);
 
   unsubscribeMyTrip = onSnapshot(q, async (snap) => {
     if (snap.empty) {
