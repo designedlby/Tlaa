@@ -1629,15 +1629,22 @@ function updateMetrics() {
 
   if (!pickupLatLng || !dropoffLatLng) {
     el.textContent = "اختر نقطتين على الخريطة أو بالبحث.";
+    window.currentKmRoad = 0;
+    renderTripPricingSummary(0);
     return;
   }
 
-  const kmStraight = haversineKm(pickupLatLng, dropoffLatLng);
-  const kmRoad = kmStraight * PRICING.roadFactor;
-  const price = computePrice(kmRoad);
+  const kmRoad = haversineKm(pickupLatLng, dropoffLatLng);
+
+  window.currentKmRoad = Number(kmRoad || 0);
+
+  const pricing = computeTripPricing(window.currentKmRoad);
+  const price = pricing.finalPrice;
+
+  renderTripPricingSummary(window.currentKmRoad);
 
   el.textContent =
-    `المسافة التقديرية: ${kmRoad.toFixed(1)} كم | السعر المقترح: ${price} جنيه`;
+    `المسافة التقديرية: ${window.currentKmRoad.toFixed(1)} كم | السعر المقترح: ${price} جنيه`;
 }
 
 // ---------- Search (Nominatim) ----------
