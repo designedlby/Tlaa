@@ -1423,11 +1423,38 @@ function shortPlaceName(fullText = "", lat = null, lng = null) {
   return raw;
 }
 
-function setPickup(lat, lng, label = "", fullAddress = "") {
-  pickupLatLng = { lat, lng };
+function normalizeLatLngInput(a, b, c, d) {
+  // الشكل 1: setPickup({lat, lng}, label, fullAddress)
+  if (a && typeof a === "object" && "lat" in a && "lng" in a) {
+    return {
+      lat: Number(a.lat),
+      lng: Number(a.lng),
+      label: typeof b === "string" ? b : "",
+      fullAddress: typeof c === "string" ? c : ""
+    };
+  }
 
-  const displayName = shortPlaceName(label || fullAddress, lat, lng);
-  const addressText = String(fullAddress || label || "").trim();
+  // الشكل 2: setPickup(lat, lng, label, fullAddress)
+  return {
+    lat: Number(a),
+    lng: Number(b),
+    label: typeof c === "string" ? c : "",
+    fullAddress: typeof d === "string" ? d : ""
+  };
+}
+
+function setPickup(a, b, c = "", d = "") {
+  const parsed = normalizeLatLngInput(a, b, c, d);
+
+  if (!Number.isFinite(parsed.lat) || !Number.isFinite(parsed.lng)) {
+    console.error("setPickup received invalid coordinates:", a, b, c, d);
+    return;
+  }
+
+  pickupLatLng = { lat: parsed.lat, lng: parsed.lng };
+
+  const displayName = shortPlaceName(parsed.label || parsed.fullAddress, parsed.lat, parsed.lng);
+  const addressText = String(parsed.fullAddress || parsed.label || displayName).trim();
 
   const pickupInput = document.getElementById("pickup");
   const pickupMapsInput = document.getElementById("pickupMapsInput");
@@ -1438,19 +1465,26 @@ function setPickup(lat, lng, label = "", fullAddress = "") {
   window.currentPickupAddress = addressText || displayName;
 
   if (pickupMarker) {
-    pickupMarker.setLatLng([lat, lng]);
-  } else if (window.map) {
-    pickupMarker = L.marker([lat, lng]).addTo(window.map);
+    pickupMarker.setLatLng([parsed.lat, parsed.lng]);
+  } else if (typeof L !== "undefined" && typeof map !== "undefined" && map) {
+    pickupMarker = L.marker([parsed.lat, parsed.lng]).addTo(map);
   }
 
   updateMetrics();
 }
 
-function setDropoff(lat, lng, label = "", fullAddress = "") {
-  dropoffLatLng = { lat, lng };
+function setDropoff(a, b, c = "", d = "") {
+  const parsed = normalizeLatLngInput(a, b, c, d);
 
-  const displayName = shortPlaceName(label || fullAddress, lat, lng);
-  const addressText = String(fullAddress || label || "").trim();
+  if (!Number.isFinite(parsed.lat) || !Number.isFinite(parsed.lng)) {
+    console.error("setDropoff received invalid coordinates:", a, b, c, d);
+    return;
+  }
+
+  dropoffLatLng = { lat: parsed.lat, lng: parsed.lng };
+
+  const displayName = shortPlaceName(parsed.label || parsed.fullAddress, parsed.lat, parsed.lng);
+  const addressText = String(parsed.fullAddress || parsed.label || displayName).trim();
 
   const dropoffInput = document.getElementById("dropoff");
   const dropoffMapsInput = document.getElementById("dropoffMapsInput");
@@ -1461,9 +1495,9 @@ function setDropoff(lat, lng, label = "", fullAddress = "") {
   window.currentDropoffAddress = addressText || displayName;
 
   if (dropoffMarker) {
-    dropoffMarker.setLatLng([lat, lng]);
-  } else if (window.map) {
-    dropoffMarker = L.marker([lat, lng]).addTo(window.map);
+    dropoffMarker.setLatLng([parsed.lat, parsed.lng]);
+  } else if (typeof L !== "undefined" && typeof map !== "undefined" && map) {
+    dropoffMarker = L.marker([parsed.lat, parsed.lng]).addTo(map);
   }
 
   updateMetrics();
