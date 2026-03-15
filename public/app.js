@@ -385,12 +385,12 @@ renderTripPricingSummary(window.currentKmRoad);
 
 async function createTrip(riderId) {
   const pickup =
-  document.getElementById("pickup")?.value?.trim() ||
+  document.getElementById("pickupSearch")?.value?.trim() ||
   document.getElementById("pickupMapsInput")?.value?.trim() ||
   (pickupLatLng ? `${pickupLatLng.lat.toFixed(6)}, ${pickupLatLng.lng.toFixed(6)}` : "");
 
 const dropoff =
-  document.getElementById("dropoff")?.value?.trim() ||
+  document.getElementById("dropoffSearch")?.value?.trim() ||
   document.getElementById("dropoffMapsInput")?.value?.trim() ||
   (dropoffLatLng ? `${dropoffLatLng.lat.toFixed(6)}, ${dropoffLatLng.lng.toFixed(6)}` : "");
   
@@ -1387,9 +1387,16 @@ function initMapOnce() {
   }).addTo(map);
 
   map.on("click", (e) => {
-    if (selecting === "pickup") setPickup(e.latlng, "من الخريطة");
-    else setDropoff(e.latlng, "من الخريطة");
-  });
+  if (selecting === "pickup") {
+    setPickup(e.latlng, "من الخريطة");
+    selecting = "dropoff";
+  } else {
+    setDropoff(e.latlng, "من الخريطة");
+    selecting = "pickup";
+  }
+
+  updatePickModeLabel();
+});
 
   updatePickModeLabel();
   updateMetrics();
@@ -1450,7 +1457,7 @@ function setPickup(a, b, c = "", d = "") {
   const displayName = shortPlaceName(parsed.label || parsed.fullAddress, parsed.lat, parsed.lng);
   const addressText = String(parsed.fullAddress || parsed.label || displayName).trim();
 
-  const pickupInput = document.getElementById("pickup");
+  const pickupInput = document.getElementById("pickupSearch");
   const pickupMapsInput = document.getElementById("pickupMapsInput");
 
   if (pickupInput) pickupInput.value = displayName;
@@ -1480,7 +1487,7 @@ function setDropoff(a, b, c = "", d = "") {
   const displayName = shortPlaceName(parsed.label || parsed.fullAddress, parsed.lat, parsed.lng);
   const addressText = String(parsed.fullAddress || parsed.label || displayName).trim();
 
-  const dropoffInput = document.getElementById("dropoff");
+  const dropoffInput = document.getElementById("dropoffSearch");
   const dropoffMapsInput = document.getElementById("dropoffMapsInput");
 
   if (dropoffInput) dropoffInput.value = displayName;
