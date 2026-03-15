@@ -519,25 +519,29 @@ const nearbyTrips = [];
 snap.forEach((docSnap) => {
   const t = docSnap.data();
 
-  const hasPickupLat = typeof t.pickupLat === "number";
-  const hasPickupLng = typeof t.pickupLng === "number";
+  const pickupLat = Number(t.pickupLat);
+  const pickupLng = Number(t.pickupLng);
+
+  const hasPickupLat = Number.isFinite(pickupLat);
+  const hasPickupLng = Number.isFinite(pickupLng);
 
   if (hasPickupLat && hasPickupLng) {
     const kmFromDriver = distanceKm(
-      { lat: driverLocation.lat, lng: driverLocation.lng },
-      { lat: t.pickupLat, lng: t.pickupLng }
+      { lat: Number(driverLocation.lat), lng: Number(driverLocation.lng) },
+      { lat: pickupLat, lng: pickupLng }
     );
 
     if (kmFromDriver <= 15) {
       nearbyTrips.push({
         id: docSnap.id,
         ...t,
+        pickupLat,
+        pickupLng,
         kmFromDriver: Number(kmFromDriver.toFixed(1)),
         distancePriority: kmFromDriver <= 8 ? 1 : 2
       });
     }
   } else {
-    // لو الرحلة بلا إحداثيات لا نخفيها، لكن نجعلها آخر الأولوية
     nearbyTrips.push({
       id: docSnap.id,
       ...t,
@@ -1316,42 +1320,53 @@ async function updateDriverLocation(uid) {
   });
 }
 
-function renderMiniMap(mapId, trip) {
-  try {
-    if (typeof L === "undefined") return;
+function renderMiniMap(containerId, trip) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
 
-    const el = document.getElementById(mapId);
-    if (!el) return;
+  const pickupLat = Number(trip.pickupLat);
+  const pickupLng = Number(trip.pickupLng);
+  const dropoffLat = Number(trip.dropoffLat);
+  const dropoffLng = Number(trip.dropoffLng);
 
-    // لازم يكون عندنا lat/lng
-    if (!trip.pickupLat || !trip.pickupLng || !trip.dropoffLat || !trip.dropoffLng) {
-      el.innerHTML = `<div class="p-4 text-xs text-slate-300">لا توجد إحداثيات للخريطة.</div>`;
-      return;
-    }
+  const hasPickup = Number.isFinite(pickupLat) && Number.isFinite(pickupLng);
+  const hasDropoff = Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng);
 
-    const p1 = [trip.pickupLat, trip.pickupLng];
-    const p2 = [trip.dropoffLat, trip.dropoffLng];
-
-    const m = L.map(mapId, { zoomControl: false, attributionControl: false });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(m);
-
-    const b = L.latLngBounds([p1, p2]);
-    m.fitBounds(b.pad(0.25));
-    
-    L.marker(p1).addTo(m);
-    L.marker(p2).addTo(m);
-
-    // منع مشاكل اللمس داخل الكارت
-    m.dragging.disable();
-    m.scrollWheelZoom.disable();
-    m.doubleClickZoom.disable();
-    m.boxZoom.disable();
-    m.keyboard.disable();
-    if (m.tap) m.tap.disable();
-    el.style.pointerEvents = "none";
-  } catch (e) {
-    console.error("miniMap error", e);
+  if (!hasPickup || !hasDropoff) {
+    el.innerHTML = `
+      <div class="flex h-full items-center justify-center text-xs text-slate-400 p-4">
+        لا توجد إحداثيات للخريطة.
+      </div>
+    `;
+    return;
   }
+
+  const miniMap = L.map(containerId, {
+    zoomControl: false,
+    attributionControl: false
+  });
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19
+  }).addTo(miniMap);
+
+  const pickup = [pickupLat, pickupLng];
+  const dropoff = [dropoffLat, dropoffLng];
+
+  L.marker(pickup).addTo(miniMap);
+  L.marker(dropoff).addTo(miniMap);
+
+  const line = L.polyline([pickup, dropoff], {
+    weight: 4,
+    opacity: 0.8
+  }).addTo(miniMap);
+
+  miniMap.fitBounds(line.getBounds(), { padding: [20, 20] });
+
+  setTimeout(() => {
+    miniMap.invalidateSize();
+    miniMap.fitBounds(line.getBounds(), { padding: [20, 20] });
+  }, 150);
 }
 
 // ================= Map + Search + Pricing (Rider) =================
