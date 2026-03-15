@@ -450,6 +450,17 @@ const dropoff =
     return;
   }
 
+  const pickupPlace = pickupLatLng
+    ? await reverseGeocode(pickupLatLng.lat, pickupLatLng.lng)
+    : { shortText: pickup, fullText: pickup };
+
+  const dropoffPlace = dropoffLatLng
+    ? await reverseGeocode(dropoffLatLng.lat, dropoffLatLng.lng)
+    : { shortText: dropoff, fullText: dropoff };
+
+  const pickupDisplay = pickupPlace.shortText || pickup;
+  const dropoffDisplay = dropoffPlace.shortText || dropoff;
+  
   const pricing = computeTripPricing(Number(window.currentKmRoad || 0));
   const kmEstimated = Number(window.currentKmRoad || 0);
 
@@ -459,15 +470,14 @@ const dropoffLat = dropoffLatLng?.lat ?? null;
 const dropoffLng = dropoffLatLng?.lng ?? null;
   
   await addDoc(collection(db, "trips"), {
-    riderId,
-    driverId: null,
-    pickup,
-    dropoff,
-
-    pickupAddress: window.currentPickupAddress || pickup,
-dropoffAddress: window.currentDropoffAddress || dropoff,
-    pickupFullAddress: window.currentPickupFullAddress || pickup,
-  dropoffFullAddress: window.currentDropoffFullAddress || dropoff,
+  riderId,
+  driverId: null,
+  pickup: pickupDisplay,
+  dropoff: dropoffDisplay,
+  pickupAddress: pickupDisplay,
+  dropoffAddress: dropoffDisplay,
+  pickupFullAddress: pickupPlace.fullText || pickupDisplay,
+  dropoffFullAddress: dropoffPlace.fullText || dropoffDisplay,
     
     pickupLat,
 pickupLng,
