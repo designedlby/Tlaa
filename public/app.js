@@ -466,6 +466,8 @@ const dropoffLng = dropoffLatLng?.lng ?? null;
 
     pickupAddress: window.currentPickupAddress || pickup,
 dropoffAddress: window.currentDropoffAddress || dropoff,
+    pickupFullAddress: window.currentPickupFullAddress || pickup,
+  dropoffFullAddress: window.currentDropoffFullAddress || dropoff,
     
     pickupLat,
 pickupLng,
@@ -1388,6 +1390,89 @@ function renderMiniMap(containerId, trip) {
 
 // ================= Map + Search + Pricing (Rider) =================
 
+function formatCoordsText(lat, lng) {
+  const latNum = Number(lat);
+  const lngNum = Number(lng);
+
+  if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) return "";
+  return `${latNum.toFixed(6)}, ${lngNum.toFixed(6)}`;
+}
+
+function buildReadableAddress(displayName = "", lat = null, lng = null) {
+  const raw = String(displayName || "").trim();
+  const coords = formatCoordsText(lat, lng);
+
+  if (!raw) {
+    return coords || "مكان غير محدد";
+  }
+
+  const parts = raw.split(",").map(s => s.trim()).filter(Boolean);
+
+  // نأخذ أهم 4 أجزاء على الأكثر
+  const picked = parts.slice(0, 4);
+
+  let result = picked.join(" - ");
+
+  if (coords) {
+    result += ` (${coords})`;
+  }
+
+  return result;
+}
+
+async function reverseGeocode(lat, lng) {
+  const latNum = Number(lat);
+  const lngNum = Number(lng);
+
+  if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+    return {
+      shortText: "مكان غير محدد",
+      fullText: "",
+      coordsText: ""
+    };
+  }
+
+  const coordsText = formatCoordsText(latNum, lngNum);
+
+  try {
+    const url =
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2` +
+      `&lat=${encodeURIComponent(latNum)}` +
+      `&lon=${encodeURIComponent(lngNum)}` +
+      `&accept-language=ar`;
+
+    const res = await fetch(url, {
+      headers: {
+        "Accept": "application/json"
+      }
+    });
+
+    if (!res.ok) {
+      return {
+        shortText: coordsText,
+        fullText: coordsText,
+        coordsText
+      };
+    }
+
+    const data = await res.json();
+    const displayName = String(data?.display_name || "").trim();
+
+    return {
+      shortText: buildReadableAddress(displayName, latNum, lngNum),
+      fullText: displayName || coordsText,
+      coordsText
+    };
+  } catch (e) {
+    console.error("reverseGeocode error:", e);
+    return {
+      shortText: coordsText,
+      fullText: coordsText,
+      coordsText
+    };
+  }
+}
+
 let map, pickupMarker, dropoffMarker;
 let pickupLatLng = null, dropoffLatLng = null;
 let selecting = "pickup"; // pickup | dropoff
@@ -1403,12 +1488,17 @@ function initMapOnce() {
     attribution: "&copy; OpenStreetMap"
   }).addTo(map);
 
-  map.on("click", (e) => {
+  map.on("click", async (e) => {
+  const lat = e.latlng.lat;
+  const lng = e.latlng.lng;
+
+  const place = await reverseGeocode(lat, lng);
+
   if (selecting === "pickup") {
-    setPickup(e.latlng, "من الخريطة");
+    setPickup(lat, lng, place.shortText, place.fullText);
     selecting = "dropoff";
   } else {
-    setDropoff(e.latlng, "من الخريطة");
+    setDropoff(lat, lng, place.shortText, place.fullText);
     selecting = "pickup";
   }
 
@@ -1461,61 +1551,87 @@ function normalizeLatLngInput(a, b, c, d) {
   };
 }
 
-function setPickup(a, b, c = "", d = "") {
-  const parsed = normalizeLatLngInput(a, b, c, d);
+function setPickup(latlngOrLat, lngOrLabel = null, label = "", fullAddress = "") {
+  let lat, lng, labelText, fullText;
 
-  if (!Number.isFinite(parsed.lat) || !Number.isFinite(parsed.lng)) {
-    console.error("setPickup received invalid coordinates:", a, b, c, d);
+  if (typeof latlngOrLat === "object" && latlngOrLat !== null) {
+    lat = Number(latlngOrLat.lat);
+    lng = Number(latlngOrLat.lng);
+    labelText = typeof lngOrLabel === "string" ? lngOrLabel : "";
+    fullText = typeof label === "string" ? label : "";
+  } else {
+    lat = Number(latlngOrLat);
+    lng = Number(lngOrLabel);
+    labelText = typeof label === "string" ? label : "";
+    fullText = typeof fullAddress === "string" ? fullAddress : "";
+  }
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    console.error("setPickup invalid lat/lng", latlngOrLat, lngOrLabel, label, fullAddress);
     return;
   }
 
-  pickupLatLng = { lat: parsed.lat, lng: parsed.lng };
-
-  const displayName = shortPlaceName(parsed.label || parsed.fullAddress, parsed.lat, parsed.lng);
-  const addressText = String(parsed.fullAddress || parsed.label || displayName).trim();
+  pickupLatLng = { lat, lng };
 
   const pickupInput = document.getElementById("pickupSearch");
   const pickupMapsInput = document.getElementById("pickupMapsInput");
 
-  if (pickupInput) pickupInput.value = displayName;
-  if (pickupMapsInput) pickupMapsInput.value = addressText || displayName;
+  const shortText = buildReadableAddress(labelText || fullText, lat, lng);
+  const fullTextFinal = String(fullText || labelText || "").trim() || formatCoordsText(lat, lng);
 
-  window.currentPickupAddress = addressText || displayName;
+  if (pickupInput) pickupInput.value = shortText;
+  if (pickupMapsInput) pickupMapsInput.value = fullTextFinal;
+
+  window.currentPickupAddress = shortText;
+  window.currentPickupFullAddress = fullTextFinal;
 
   if (pickupMarker) {
-    pickupMarker.setLatLng([parsed.lat, parsed.lng]);
-  } else if (typeof L !== "undefined" && typeof map !== "undefined" && map) {
-    pickupMarker = L.marker([parsed.lat, parsed.lng]).addTo(map);
+    pickupMarker.setLatLng([lat, lng]);
+  } else if (typeof L !== "undefined" && map) {
+    pickupMarker = L.marker([lat, lng]).addTo(map);
   }
 
   updateMetrics();
 }
 
-function setDropoff(a, b, c = "", d = "") {
-  const parsed = normalizeLatLngInput(a, b, c, d);
+function setDropoff(latlngOrLat, lngOrLabel = null, label = "", fullAddress = "") {
+  let lat, lng, labelText, fullText;
 
-  if (!Number.isFinite(parsed.lat) || !Number.isFinite(parsed.lng)) {
-    console.error("setDropoff received invalid coordinates:", a, b, c, d);
+  if (typeof latlngOrLat === "object" && latlngOrLat !== null) {
+    lat = Number(latlngOrLat.lat);
+    lng = Number(latlngOrLat.lng);
+    labelText = typeof lngOrLabel === "string" ? lngOrLabel : "";
+    fullText = typeof label === "string" ? label : "";
+  } else {
+    lat = Number(latlngOrLat);
+    lng = Number(lngOrLabel);
+    labelText = typeof label === "string" ? label : "";
+    fullText = typeof fullAddress === "string" ? fullAddress : "";
+  }
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    console.error("setDropoff invalid lat/lng", latlngOrLat, lngOrLabel, label, fullAddress);
     return;
   }
 
-  dropoffLatLng = { lat: parsed.lat, lng: parsed.lng };
-
-  const displayName = shortPlaceName(parsed.label || parsed.fullAddress, parsed.lat, parsed.lng);
-  const addressText = String(parsed.fullAddress || parsed.label || displayName).trim();
+  dropoffLatLng = { lat, lng };
 
   const dropoffInput = document.getElementById("dropoffSearch");
   const dropoffMapsInput = document.getElementById("dropoffMapsInput");
 
-  if (dropoffInput) dropoffInput.value = displayName;
-  if (dropoffMapsInput) dropoffMapsInput.value = addressText || displayName;
+  const shortText = buildReadableAddress(labelText || fullText, lat, lng);
+  const fullTextFinal = String(fullText || labelText || "").trim() || formatCoordsText(lat, lng);
 
-  window.currentDropoffAddress = addressText || displayName;
+  if (dropoffInput) dropoffInput.value = shortText;
+  if (dropoffMapsInput) dropoffMapsInput.value = fullTextFinal;
+
+  window.currentDropoffAddress = shortText;
+  window.currentDropoffFullAddress = fullTextFinal;
 
   if (dropoffMarker) {
-    dropoffMarker.setLatLng([parsed.lat, parsed.lng]);
-  } else if (typeof L !== "undefined" && typeof map !== "undefined" && map) {
-    dropoffMarker = L.marker([parsed.lat, parsed.lng]).addTo(map);
+    dropoffMarker.setLatLng([lat, lng]);
+  } else if (typeof L !== "undefined" && map) {
+    dropoffMarker = L.marker([lat, lng]).addTo(map);
   }
 
   updateMetrics();
