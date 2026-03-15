@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";               
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";                                                
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -396,6 +396,23 @@ const dropoff =
   
   const riderStatus = document.getElementById("riderStatus");
 
+    // منع إنشاء أكثر من رحلة نشطة لنفس الراكب
+  const activeTripQuery = query(
+    collection(db, "trips"),
+    where("riderId", "==", riderId),
+    where("status", "in", ["pending", "accepted", "cancel_requested", "waiting_return"]),
+    limit(1)
+  );
+
+  const activeTripSnap = await getDocs(activeTripQuery);
+
+  if (!activeTripSnap.empty) {
+    if (riderStatus) {
+      riderStatus.textContent = "لديك بالفعل رحلة أو طلب نشط. لا يمكنك إنشاء طلب جديد قبل إنهاء أو إلغاء الحالي.";
+    }
+    return;
+  }
+  
   const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
   const luggageType = document.getElementById("luggageType")?.value || "none";
   const tripType = getSelectedTripType();
@@ -1891,6 +1908,7 @@ function watchMyLatestTrip(riderId) {
   const info = document.getElementById("myTripInfo");
   const cancelBtn = document.getElementById("cancelTripBtn");
   const requestBtn = document.getElementById("requestCancelBtn");
+  const createTripBtn = document.getElementById("createTripBtn");
   const riderRatingBox = document.getElementById("riderRatingBox");
 const riderRatingStatus = document.getElementById("riderRatingStatus");
 const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
@@ -1906,17 +1924,25 @@ const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
 
   unsubscribeMyTrip = onSnapshot(q, async (snap) => {
     if (snap.empty) {
-      if (info) info.textContent = "لا يوجد طلب حاليًا.";
-      cancelBtn?.classList.add("hidden");
-      requestBtn?.classList.add("hidden");
-riderRatingBox?.classList.add("hidden");
-return;
-    }
+  if (info) info.textContent = "لا يوجد طلب حاليًا.";
+  cancelBtn?.classList.add("hidden");
+  requestBtn?.classList.add("hidden");
+  riderRatingBox?.classList.add("hidden");
+
+  if (createTripBtn) {
+    createTripBtn.disabled = false;
+    createTripBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    createTripBtn.textContent = "إرسال الطلب";
+  }
+
+  return;
+}
 
     const docSnap = snap.docs[0];
     const t = docSnap.data();
 
     const status = t.status || "pending";
+    const isActiveTrip = ["pending", "accepted", "cancel_requested", "waiting_return"].includes(status);
     const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
 
 let driverTxt = "";
@@ -2053,6 +2079,18 @@ if (info) {
 
     ${driverTxt}
   `;
+}
+
+if (createTripBtn) {
+  if (isActiveTrip) {
+    createTripBtn.disabled = true;
+    createTripBtn.classList.add("opacity-50", "cursor-not-allowed");
+    createTripBtn.textContent = "لديك طلب نشط";
+  } else {
+    createTripBtn.disabled = false;
+    createTripBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    createTripBtn.textContent = "إرسال الطلب";
+  }
 }
     
     // pending: الراكب يقدر يلغي فورًا (قبل ما السائق يقبل)
