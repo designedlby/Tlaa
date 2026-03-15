@@ -373,6 +373,9 @@ if (profile.role === "admin") {
   await loadMyLatestProfileUpdateRequest(user.uid);
   initRatingWidgets();
   initTripOptionsUI();
+
+  window.currentKmRoad = Number(window.currentKmRoad || 0);
+renderTripPricingSummary(window.currentKmRoad);
 }
   } catch (e) {
     console.error(e);
@@ -381,35 +384,66 @@ if (profile.role === "admin") {
 });
 
 async function createTrip(riderId) {
+  const pickup = document.getElementById("pickup")?.value?.trim();
+  const dropoff = document.getElementById("dropoff")?.value?.trim();
   const riderStatus = document.getElementById("riderStatus");
 
-  if (!pickupLatLng || !dropoffLatLng) {
-    if (riderStatus) riderStatus.textContent = "لازم تختار مكان الركوب والوجهة على الخريطة أو بالبحث.";
+  const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
+  const luggageType = document.getElementById("luggageType")?.value || "none";
+  const tripType = getSelectedTripType();
+  const waitingMinutes = Number(document.getElementById("waitingMinutes")?.value || 0);
+  const returnDate = document.getElementById("returnDate")?.value || "";
+  const tripNotes = document.getElementById("tripNotes")?.value?.trim() || "";
+
+  if (!pickup || !dropoff) {
+    if (riderStatus) riderStatus.textContent = "اكتب مكان الانطلاق والوجهة بشكل صحيح.";
     return;
   }
 
-  const kmStraight = haversineKm(pickupLatLng, dropoffLatLng);
-  const kmRoad = kmStraight * PRICING.roadFactor;
-  const price = computePrice(kmRoad);
+  if (!passengerCount || passengerCount < 1 || passengerCount > 7) {
+    if (riderStatus) riderStatus.textContent = "اختر عدد الركاب بشكل صحيح.";
+    return;
+  }
+
+  if (!luggageType) {
+    if (riderStatus) riderStatus.textContent = "اختر حالة الشنط أو الحمولة.";
+    return;
+  }
+
+  if (!tripType) {
+    if (riderStatus) riderStatus.textContent = "اختر نوع الرحلة.";
+    return;
+  }
+
+  if (tripType === "round_same_day" && waitingMinutes <= 0) {
+    if (riderStatus) riderStatus.textContent = "اختر مدة الانتظار لرحلة الذهاب والعودة في نفس اليوم.";
+    return;
+  }
+
+  if (tripType === "return_other_day" && !returnDate) {
+    if (riderStatus) riderStatus.textContent = "اختر تاريخ العودة المطلوب.";
+    return;
+  }
+
   const pricing = computeTripPricing(Number(window.currentKmRoad || 0));
-  
+
   await addDoc(collection(db, "trips"), {
     riderId,
     driverId: null,
-
-    pickup: document.getElementById("pickupSearch")?.value?.trim() || "Pickup",
-    dropoff: document.getElementById("dropoffSearch")?.value?.trim() || "Dropoff",
-
-    pickupLat: pickupLatLng.lat,
-    pickupLng: pickupLatLng.lng,
-    dropoffLat: dropoffLatLng.lat,
-    dropoffLng: dropoffLatLng.lng,
-
-    kmEstimated: Number(kmRoad.toFixed(2)),
-    price,
-
+    pickup,
+    dropoff,
+    price: pricing.finalPrice,
     status: "pending",
-    createdAt: serverTimestamp()
+    createdAt: serverTimestamp(),
+
+    passengerCount,
+    luggageType,
+    tripType,
+    waitingMinutes: tripType === "round_same_day" ? waitingMinutes : 0,
+    returnDate: tripType === "return_other_day" ? returnDate : "",
+    tripNotes,
+    returnRequestScheduled: tripType === "return_other_day",
+    priceBreakdown: pricing
   });
 
   if (riderStatus) riderStatus.textContent = "تم إرسال الطلب ✅ انتظر قبول السائق.";
@@ -1510,7 +1544,8 @@ function toggleTripTypeFields() {
   }
 
   const kmRoad = Number(window.currentKmRoad || 0);
-  renderTripPricingSummary(kmRoad);
+  window.currentKmRoad = Number(kmRoad || 0);
+renderTripPricingSummary(window.currentKmRoad);
 }
 
 function initTripOptionsUI() {
