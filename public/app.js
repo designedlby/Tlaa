@@ -372,6 +372,7 @@ if (profile.role === "admin") {
   watchMyLatestTrip(user.uid);
   await loadMyLatestProfileUpdateRequest(user.uid);
   initRatingWidgets();
+  initTripOptionsUI();
 }
   } catch (e) {
     console.error(e);
@@ -390,7 +391,8 @@ async function createTrip(riderId) {
   const kmStraight = haversineKm(pickupLatLng, dropoffLatLng);
   const kmRoad = kmStraight * PRICING.roadFactor;
   const price = computePrice(kmRoad);
-
+  const pricing = computeTripPricing(Number(window.currentKmRoad || 0));
+  
   await addDoc(collection(db, "trips"), {
     riderId,
     driverId: null,
@@ -1380,10 +1382,153 @@ function distanceKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-function computePrice(kmRoad) {
-  const raw = PRICING.baseFare + kmRoad * PRICING.ratePerKm;
-  const withMin = Math.max(raw, PRICING.minFare);
-  return roundTo(withMin, PRICING.roundTo);
+const PRICING = {
+  baseFare: 35,
+  perKm: 7.5,
+  minimumFare: 55,
+  luggageBagsFee: 15,
+  luggageExtraFee: 30,
+  extraPassengerAfter4: 10,
+  waitingPer30Min: 20,
+  futureReturnBookingFee: 40
+};
+
+function roundMoney(x) {
+  return Math.round(Number(x || 0));
+}
+
+function getSelectedTripType() {
+  const selected = document.querySelector('input[name="tripType"]:checked');
+  return selected?.value || "one_way";
+}
+
+function computeTripPricing(kmRoad) {
+  const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
+  const luggageType = document.getElementById("luggageType")?.value || "none";
+  const tripType = getSelectedTripType();
+  const waitingMinutes = Number(document.getElementById("waitingMinutes")?.value || 0);
+
+  const baseOneWayRaw = PRICING.baseFare + (Number(kmRoad || 0) * PRICING.perKm);
+  const oneWayFare = Math.max(PRICING.minimumFare, roundMoney(baseOneWayRaw));
+
+  let luggageFee = 0;
+  if (luggageType === "bags") luggageFee = PRICING.luggageBagsFee;
+  if (luggageType === "extra") luggageFee = PRICING.luggageExtraFee;
+
+  let extraPassengerFee = 0;
+  if (passengerCount > 4) {
+    extraPassengerFee = (passengerCount - 4) * PRICING.extraPassengerAfter4;
+  }
+
+  const oneWayTotal = oneWayFare + luggageFee + extraPassengerFee;
+
+  let waitingFee = 0;
+  let bookingFee = 0;
+  let finalPrice = oneWayTotal;
+  let tripLabel = "ذهاب فقط";
+
+  if (tripType === "round_same_day") {
+    const waitingBlocks = Math.ceil(waitingMinutes / 30);
+    waitingFee = waitingBlocks * PRICING.waitingPer30Min;
+    finalPrice = (oneWayTotal * 2) + waitingFee;
+    tripLabel = "ذهاب وعودة في نفس اليوم";
+  }
+
+  if (tripType === "return_other_day") {
+    bookingFee = PRICING.futureReturnBookingFee;
+    finalPrice = oneWayTotal + bookingFee;
+    tripLabel = "ذهاب الآن وعودة في يوم آخر";
+  }
+
+  return {
+    tripType,
+    tripLabel,
+    km: Number(Number(kmRoad || 0).toFixed(1)),
+    passengerCount,
+    luggageType,
+    waitingMinutes,
+    oneWayFare,
+    luggageFee,
+    extraPassengerFee,
+    waitingFee,
+    bookingFee,
+    finalPrice: roundMoney(finalPrice)
+  };
+}
+
+function renderTripPricingSummary(kmRoad = 0) {
+  const detailsEl = document.getElementById("tripPricingDetails");
+  if (!detailsEl) return;
+
+  const result = computeTripPricing(kmRoad);
+
+  let luggageText = "لا يوجد";
+  if (result.luggageType === "bags") luggageText = "شنط عادية";
+  if (result.luggageType === "extra") luggageText = "حمولة إضافية";
+
+  let extraLines = "";
+
+  if (result.tripType === "round_same_day") {
+    extraLines += `<div>رسوم الانتظار: <b>${result.waitingFee}</b> جنيه</div>`;
+  }
+
+  if (result.tripType === "return_other_day") {
+    extraLines += `<div>رسوم حجز/تنسيق العودة: <b>${result.bookingFee}</b> جنيه</div>`;
+    extraLines += `<div class="text-amber-300">سعر العودة النهائي يُحسب لاحقًا عند موعد الرجوع.</div>`;
+  }
+
+  detailsEl.innerHTML = `
+    <div>نوع الرحلة: <b>${result.tripLabel}</b></div>
+    <div>المسافة التقديرية: <b>${result.km}</b> كم</div>
+    <div>عدد الركاب: <b>${result.passengerCount}</b></div>
+    <div>الشنط/الحمولة: <b>${luggageText}</b></div>
+    <div>سعر الذهاب الأساسي: <b>${result.oneWayFare}</b> جنيه</div>
+    ${result.luggageFee ? `<div>رسوم الشنط/الحمولة: <b>${result.luggageFee}</b> جنيه</div>` : ""}
+    ${result.extraPassengerFee ? `<div>رسوم ركاب إضافيين: <b>${result.extraPassengerFee}</b> جنيه</div>` : ""}
+    ${extraLines}
+    <div class="mt-2 rounded-xl bg-indigo-500/15 px-3 py-2 text-white ring-1 ring-indigo-500/20">
+      السعر النهائي المبدئي: <b>${result.finalPrice}</b> جنيه
+    </div>
+  `;
+}
+
+function toggleTripTypeFields() {
+  const tripType = getSelectedTripType();
+
+  const sameDayBox = document.getElementById("sameDayReturnFields");
+  const differentDaysBox = document.getElementById("differentDaysReturnFields");
+
+  sameDayBox?.classList.add("hidden");
+  differentDaysBox?.classList.add("hidden");
+
+  if (tripType === "round_same_day") {
+    sameDayBox?.classList.remove("hidden");
+  }
+
+  if (tripType === "return_other_day") {
+    differentDaysBox?.classList.remove("hidden");
+  }
+
+  const kmRoad = Number(window.currentKmRoad || 0);
+  renderTripPricingSummary(kmRoad);
+}
+
+function initTripOptionsUI() {
+  const passengerCount = document.getElementById("passengerCount");
+  const luggageType = document.getElementById("luggageType");
+  const waitingMinutes = document.getElementById("waitingMinutes");
+  const returnDate = document.getElementById("returnDate");
+
+  document.querySelectorAll('input[name="tripType"]').forEach((radio) => {
+    radio.addEventListener("change", toggleTripTypeFields);
+  });
+
+  passengerCount?.addEventListener("change", () => renderTripPricingSummary(Number(window.currentKmRoad || 0)));
+  luggageType?.addEventListener("change", () => renderTripPricingSummary(Number(window.currentKmRoad || 0)));
+  waitingMinutes?.addEventListener("change", () => renderTripPricingSummary(Number(window.currentKmRoad || 0)));
+  returnDate?.addEventListener("change", () => renderTripPricingSummary(Number(window.currentKmRoad || 0)));
+
+  toggleTripTypeFields();
 }
 
 function openMapsHelperModal(target) {
