@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";                                             
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";               
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -1404,8 +1404,16 @@ function updatePickModeLabel() {
 function shortPlaceName(fullText = "", lat = null, lng = null) {
   const raw = String(fullText || "").trim();
 
-  const latNum = Number(lat);
-  const lngNum = Number(lng);
+  et latNum = lat;
+let lngNum = lng;
+
+if (typeof lat === "object" && lat !== null) {
+  latNum = lat.lat;
+  lngNum = lat.lng;
+}
+
+latNum = Number(latNum);
+lngNum = Number(lngNum);
 
   if (!raw) {
     if (Number.isFinite(latNum) && Number.isFinite(lngNum)) {
