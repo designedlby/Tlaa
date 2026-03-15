@@ -434,16 +434,27 @@ const dropoff =
   }
 
   const pricing = computeTripPricing(Number(window.currentKmRoad || 0));
+  const kmEstimated = Number(window.currentKmRoad || 0);
 
+const pickupLat = pickupLatLng?.lat ?? null;
+const pickupLng = pickupLatLng?.lng ?? null;
+const dropoffLat = dropoffLatLng?.lat ?? null;
+const dropoffLng = dropoffLatLng?.lng ?? null;
+  
   await addDoc(collection(db, "trips"), {
     riderId,
     driverId: null,
     pickup,
     dropoff,
+    pickupLat,
+pickupLng,
+dropoffLat,
+dropoffLng,
+kmEstimated,
     price: pricing.finalPrice,
     status: "pending",
     createdAt: serverTimestamp(),
-
+    
     passengerCount,
     luggageType,
     tripType,
