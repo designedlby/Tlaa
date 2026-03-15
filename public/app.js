@@ -1304,13 +1304,6 @@ function renderMiniMap(mapId, trip) {
 }
 
 // ================= Map + Search + Pricing (Rider) =================
-const PRICING = {
-  baseFare: 20,
-  ratePerKm: 8,
-  roadFactor: 1.3,
-  minFare: 35,
-  roundTo: 5
-};
 
 let map, pickupMarker, dropoffMarker;
 let pickupLatLng = null, dropoffLatLng = null;
