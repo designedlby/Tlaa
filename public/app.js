@@ -484,7 +484,11 @@ if (!driverSnap.exists()) {
 const driverData = driverSnap.data();
 const driverLocation = driverData.location;
 
-if (!driverLocation || !driverLocation.lat || !driverLocation.lng) {
+if (
+  !driverLocation ||
+  typeof driverLocation.lat !== "number" ||
+  typeof driverLocation.lng !== "number"
+) {
   list.innerHTML = `<div class="text-xs text-slate-400">حدّث موقعك أولًا لعرض الرحلات القريبة منك.</div>`;
   return;
 }
@@ -511,19 +515,28 @@ const nearbyTrips = [];
 snap.forEach((docSnap) => {
   const t = docSnap.data();
 
-  if (t.pickupLat && t.pickupLng) {
+  const hasPickupLat = typeof t.pickupLat === "number";
+  const hasPickupLng = typeof t.pickupLng === "number";
+
+  if (hasPickupLat && hasPickupLng) {
     const kmFromDriver = distanceKm(
       { lat: driverLocation.lat, lng: driverLocation.lng },
       { lat: t.pickupLat, lng: t.pickupLng }
     );
 
-    if (kmFromDriver <= 8) {
-      nearbyTrips.push({
-        id: docSnap.id,
-        ...t,
-        kmFromDriver: Number(kmFromDriver.toFixed(1))
-      });
-    }
+    // ✅ مؤقتًا: لا تمنع الرحلة بسبب المسافة
+    nearbyTrips.push({
+      id: docSnap.id,
+      ...t,
+      kmFromDriver: Number(kmFromDriver.toFixed(1))
+    });
+  } else {
+    // fallback لو الإحداثيات مش موجودة
+    nearbyTrips.push({
+      id: docSnap.id,
+      ...t,
+      kmFromDriver: null
+    });
   }
 });
 
