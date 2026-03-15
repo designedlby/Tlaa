@@ -368,6 +368,107 @@
     </div>
     <div class="mt-2 text-xs text-slate-300" id="tripMetrics">اختر نقطتين على الخريطة أو بالبحث.</div>
   </div>
+
+      <!-- Trip options -->
+<div class="mt-4 grid gap-3">
+
+  <!-- Passenger count -->
+  <div>
+    <label class="mb-2 block text-xs font-semibold text-slate-300">عدد الركاب</label>
+    <select id="passengerCount"
+      class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+      <option value="1">1 راكب</option>
+      <option value="2">2 ركاب</option>
+      <option value="3">3 ركاب</option>
+      <option value="4">4 ركاب</option>
+      <option value="5">5 ركاب</option>
+      <option value="6">6 ركاب</option>
+      <option value="7">7 ركاب</option>
+    </select>
+  </div>
+
+  <!-- Luggage -->
+  <div>
+    <label class="mb-2 block text-xs font-semibold text-slate-300">شنط أو حمولة</label>
+    <select id="luggageType"
+      class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+      <option value="none">لا يوجد</option>
+      <option value="bags">شنط عادية</option>
+      <option value="extra">حمولة إضافية</option>
+    </select>
+  </div>
+
+  <!-- Trip type -->
+  <div>
+    <label class="mb-2 block text-xs font-semibold text-slate-300">نوع الرحلة</label>
+
+    <div class="grid gap-2 sm:grid-cols-3">
+      <label class="rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm">
+        <input type="radio" name="tripType" value="one_way" checked class="mr-2">
+        ذهاب فقط
+      </label>
+
+      <label class="rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm">
+        <input type="radio" name="tripType" value="round_same_day" class="mr-2">
+        ذهاب وعودة في نفس اليوم
+      </label>
+
+      <label class="rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm">
+        <input type="radio" name="tripType" value="return_other_day" class="mr-2">
+        ذهاب الآن وعودة في يوم آخر
+      </label>
+    </div>
+  </div>
+
+  <!-- Same-day waiting -->
+  <div id="sameDayReturnFields" class="hidden">
+    <label class="mb-2 block text-xs font-semibold text-slate-300">مدة الزيارة / الانتظار</label>
+    <select id="waitingMinutes"
+      class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+      <option value="30">30 دقيقة</option>
+      <option value="60">1 ساعة</option>
+      <option value="120">2 ساعة</option>
+      <option value="180">3 ساعات</option>
+      <option value="240">4 ساعات</option>
+      <option value="300">5 ساعات</option>
+      <option value="360">6 ساعات</option>
+    </select>
+
+    <p class="mt-2 text-xs text-slate-400">
+      رسوم الانتظار ستُحسب تلقائيًا وتُضاف للسعر النهائي.
+    </p>
+  </div>
+
+  <!-- Return on another day -->
+  <div id="differentDaysReturnFields" class="hidden">
+    <label class="mb-2 block text-xs font-semibold text-slate-300">تاريخ العودة المطلوب</label>
+    <input id="returnDate" type="date"
+      class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400" />
+
+    <p class="mt-2 text-xs leading-6 text-slate-400">
+      سيتم تنفيذ رحلة الذهاب الآن فقط، وسيتم حفظ طلب عودة في يوم آخر.
+      سعر العودة النهائي يُحسب لاحقًا عند موعد الرجوع.
+    </p>
+  </div>
+
+  <!-- Optional notes -->
+  <div>
+    <label class="mb-2 block text-xs font-semibold text-slate-300">ملاحظات إضافية (اختياري)</label>
+    <textarea id="tripNotes"
+      class="min-h-[90px] w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+      placeholder="مثال: معايا شنطتين كبار / معايا طفل / نقطة الالتقاء أمام البوابة"></textarea>
+  </div>
+
+  <!-- Trip pricing summary -->
+  <div id="tripPricingSummary" class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+    <div class="text-sm font-semibold text-white">ملخص السعر</div>
+    <div id="tripPricingDetails" class="mt-2 text-xs leading-6 text-slate-300">
+      اختر نوع الرحلة وحدد البيانات ليظهر السعر التفصيلي.
+    </div>
+  </div>
+
+</div>
+      
       <button id="createTripBtn"
         class="w-full rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-semibold py-3">
         إرسال الطلب
