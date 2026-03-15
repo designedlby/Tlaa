@@ -1404,9 +1404,12 @@ function updatePickModeLabel() {
 function shortPlaceName(fullText = "", lat = null, lng = null) {
   const raw = String(fullText || "").trim();
 
+  const latNum = Number(lat);
+  const lngNum = Number(lng);
+
   if (!raw) {
-    if (lat != null && lng != null) {
-      return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    if (Number.isFinite(latNum) && Number.isFinite(lngNum)) {
+      return `${latNum.toFixed(6)}, ${lngNum.toFixed(6)}`;
     }
     return "مكان غير محدد";
   }
