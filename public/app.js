@@ -2614,7 +2614,7 @@ document.getElementById("applyPickupMapsBtn")?.addEventListener("click", () => {
   showAlert("تم تحديد مكان الركوب من Google Maps ✅", "success");
 });
 
-document.getElementById("applyDropoffMapsBtn")?.addEventListener("click", () => {
+document.getElementById("applyDropoffMapsBtn")?.addEventListener("click", async () => {
   const raw = document.getElementById("dropoffMapsInput")?.value?.trim();
   const parsed = parseLatLngFromText(raw);
 
@@ -2624,7 +2624,14 @@ document.getElementById("applyDropoffMapsBtn")?.addEventListener("click", () => 
   }
 
   initMapOnce();
-  setDropoff(parsed, raw);
+
+  const lat = Number(parsed.lat);
+  const lng = Number(parsed.lng);
+
+  const place = await reverseGeocode(lat, lng);
+
+  setDropoff(lat, lng, place.shortText, place.fullText);
+
   showAlert("تم تحديد الوجهة من Google Maps ✅", "success");
 });
 
