@@ -1483,6 +1483,100 @@ async function reverseGeocode(lat, lng) {
   }
 }
 
+function getGoogleMapsDirectionsUrl({ origin, pickup, destination }) {
+  const params = new URLSearchParams({
+    api: "1",
+    travelmode: "driving"
+  });
+
+  if (origin && Number.isFinite(origin.lat) && Number.isFinite(origin.lng)) {
+    params.set("origin", `${origin.lat},${origin.lng}`);
+  }
+
+  if (pickup && Number.isFinite(pickup.lat) && Number.isFinite(pickup.lng)) {
+    if (origin) {
+      params.set("waypoints", `${pickup.lat},${pickup.lng}`);
+    } else {
+      params.set("origin", `${pickup.lat},${pickup.lng}`);
+    }
+  }
+
+  if (destination && Number.isFinite(destination.lat) && Number.isFinite(destination.lng)) {
+    params.set("destination", `${destination.lat},${destination.lng}`);
+  }
+
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function getCurrentBrowserLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation not supported"));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          lat: Number(pos.coords.latitude),
+          lng: Number(pos.coords.longitude)
+        });
+      },
+      (err) => reject(err),
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 10000
+      }
+    );
+  });
+}
+
+async function openTripNavigation(trip) {
+  const pickup = {
+    lat: Number(trip.pickupLat),
+    lng: Number(trip.pickupLng)
+  };
+
+  const destination = {
+    lat: Number(trip.dropoffLat),
+    lng: Number(trip.dropoffLng)
+  };
+
+  if (
+    !Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng) ||
+    !Number.isFinite(destination.lat) || !Number.isFinite(destination.lng)
+  ) {
+    showAlert("إحداثيات الرحلة غير مكتملة، لا يمكن فتح الملاحة.", "error");
+    return;
+  }
+
+  try {
+    const origin = await getCurrentBrowserLocation();
+
+    const url = getGoogleMapsDirectionsUrl({
+      origin,
+      pickup,
+      destination
+    });
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  } catch (e) {
+    console.error("Navigation location fallback:", e);
+
+    const url = getGoogleMapsDirectionsUrl({
+      origin: null,
+      pickup,
+      destination
+    });
+
+    window.open(url, "_blank", "noopener,noreferrer");
+
+    showAlert("تم فتح الملاحة بدون موقعك الحالي لأن صلاحية الموقع غير متاحة.", "error");
+  }
+}
+
+
 let map, pickupMarker, dropoffMarker;
 let pickupLatLng = null, dropoffLatLng = null;
 let selecting = "pickup"; // pickup | dropoff
@@ -2063,6 +2157,7 @@ function watchMyLatestTrip(riderId) {
   const requestBtn = document.getElementById("requestCancelBtn");
   const createTripBtn = document.getElementById("createTripBtn");
   const riderRatingBox = document.getElementById("riderRatingBox");
+  const navBtn = document.getElementById("openRiderNavigationBtn");
 const riderRatingStatus = document.getElementById("riderRatingStatus");
 const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
   
@@ -2087,7 +2182,7 @@ const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
     createTripBtn.classList.remove("opacity-50", "cursor-not-allowed");
     createTripBtn.textContent = "إرسال الطلب";
   }
-
+navBtn?.classList.add("hidden");
   return;
 }
 
@@ -2095,6 +2190,7 @@ const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
     const t = docSnap.data();
 
     const status = t.status || "pending";
+    const canNavigate = ["accepted", "cancel_requested", "waiting_return"].includes(status);
     const isActiveTrip = ["pending", "accepted", "cancel_requested", "waiting_return"].includes(status);
     const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
 
@@ -2234,6 +2330,13 @@ if (info) {
   `;
 }
 
+navBtn?.classList.add("hidden");
+
+if (canNavigate) {
+  navBtn?.classList.remove("hidden");
+  navBtn?.setAttribute("data-trip", docSnap.id);
+}
+    
 if (createTripBtn) {
   if (isActiveTrip) {
     createTripBtn.disabled = true;
@@ -2303,6 +2406,7 @@ function watchDriverCurrentTrip(driverId) {
   const approveBtn = document.getElementById("approveCancelBtn");
   const completeBtn = document.getElementById("completeTripBtn");
   const startBtn = document.getElementById("startTripBtn"); // مش هنستخدمه دلوقتي (اختياري)
+  const navBtn = document.getElementById("openDriverNavigationBtn");
   const driverRatingBox = document.getElementById("driverRatingBox");
 const driverRatingStatus = document.getElementById("driverRatingStatus");
 const submitDriverRatingBtn = document.getElementById("submitDriverRatingBtn");
@@ -2323,6 +2427,7 @@ const submitDriverRatingBtn = document.getElementById("submitDriverRatingBtn");
       completeBtn?.classList.add("hidden");
       startBtn?.classList.add("hidden");
 driverRatingBox?.classList.add("hidden");
+      navBtn?.classList.add("hidden");
 return;
     }
 
@@ -2331,6 +2436,7 @@ return;
     const tripId = docSnap.id;
 
     const status = t.status || "accepted";
+    const canNavigate = ["accepted", "cancel_requested", "waiting_return"].includes(status);
     const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
 const kmTxt = t.kmEstimated ? ` | ${t.kmEstimated} كم` : "";
 
@@ -2434,7 +2540,14 @@ if (info) {
     ${riderTxt}
   `;
 }
-    
+
+    navBtn?.classList.add("hidden");
+
+if (canNavigate) {
+  navBtn?.classList.remove("hidden");
+  navBtn?.setAttribute("data-trip", tripId);
+}
+
     // أخفي الكل افتراضيًا
     approveBtn?.classList.add("hidden");
     completeBtn?.classList.add("hidden");
@@ -3682,5 +3795,41 @@ document.getElementById("submitDriverRatingBtn")?.addEventListener("click", asyn
   } catch (e) {
     console.error(e);
     if (statusEl) statusEl.textContent = "فشل إرسال تقييم الراكب.";
+  }
+});
+
+document.getElementById("openRiderNavigationBtn")?.addEventListener("click", async () => {
+  const tripId = document.getElementById("openRiderNavigationBtn")?.getAttribute("data-trip");
+  if (!tripId) return;
+
+  try {
+    const tripSnap = await getDoc(doc(db, "trips", tripId));
+    if (!tripSnap.exists()) {
+      showAlert("تعذر العثور على الرحلة.", "error");
+      return;
+    }
+
+    await openTripNavigation(tripSnap.data());
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل فتح الملاحة.", "error");
+  }
+});
+
+document.getElementById("openDriverNavigationBtn")?.addEventListener("click", async () => {
+  const tripId = document.getElementById("openDriverNavigationBtn")?.getAttribute("data-trip");
+  if (!tripId) return;
+
+  try {
+    const tripSnap = await getDoc(doc(db, "trips", tripId));
+    if (!tripSnap.exists()) {
+      showAlert("تعذر العثور على الرحلة.", "error");
+      return;
+    }
+
+    await openTripNavigation(tripSnap.data());
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل فتح الملاحة.", "error");
   }
 });
