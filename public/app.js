@@ -1511,10 +1511,20 @@ function renderOrUpdateRiderLiveMap(trip, driverLocation) {
   }
 }
 
+
 async function startDriverLiveLocationSharing(driverId, tripId) {
   if (!navigator.geolocation) return;
 
+  // لو نفس الرحلة already شغالة، ما تعيدش تشغيل الـ watcher
+  if (driverLocationWatcherId !== null && driverLiveSharingTripId === tripId) {
+    return;
+  }
+
   stopDriverLiveLocationSharing();
+
+  driverLiveSharingTripId = tripId;
+  driverLiveLastSentAt = 0;
+  driverLiveLastCoords = null;
 
   driverLocationWatcherId = navigator.geolocation.watchPosition(
     async (pos) => {
@@ -1522,21 +1532,48 @@ async function startDriverLiveLocationSharing(driverId, tripId) {
         const lat = Number(pos.coords.latitude);
         const lng = Number(pos.coords.longitude);
 
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const now = Date.now();
+
+        // throttle: ابعت كل 15 ثانية على الأقل
+        const minIntervalMs = 30000;
+
+        // أو لو اتحرك أكثر من 100 متر تقريبًا
+        let movedEnough = true;
+        if (driverLiveLastCoords) {
+          const movedKm = distanceKm(
+            { lat: driverLiveLastCoords.lat, lng: driverLiveLastCoords.lng },
+            { lat, lng }
+          );
+          movedEnough = movedKm >= 0.1; // 100 متر
+        }
+
+        const enoughTimePassed = (now - driverLiveLastSentAt) >= minIntervalMs;
+
+        if (!enoughTimePassed && !movedEnough) {
+          return;
+        }
+
+        const payload = {
+          lat,
+          lng,
+          updatedAt: now
+        };
+
         await updateDoc(doc(db, "trips", tripId), {
-          driverLiveLocation: {
-            lat,
-            lng,
-            updatedAt: Date.now()
-          }
+          driverLiveLocation: payload
         });
 
-        await setDoc(doc(db, "users", driverId), {
-          location: {
-            lat,
-            lng,
-            updatedAt: Date.now()
-          }
-        }, { merge: true });
+        // حدّث users/{driverId}.location بشكل أخف: كل 30 ثانية فقط
+        if (!driverLiveLastSentAt || (now - driverLiveLastSentAt) >= 30000) {
+          await setDoc(doc(db, "users", driverId), {
+            location: payload
+          }, { merge: true });
+        }
+
+        driverLiveLastSentAt = now;
+        driverLiveLastCoords = { lat, lng };
       } catch (e) {
         console.error("startDriverLiveLocationSharing update error:", e);
       }
@@ -1546,8 +1583,8 @@ async function startDriverLiveLocationSharing(driverId, tripId) {
     },
     {
       enableHighAccuracy: true,
-      maximumAge: 5000,
-      timeout: 10000
+      maximumAge: 10000,
+      timeout: 15000
     }
   );
 }
@@ -1557,7 +1594,12 @@ function stopDriverLiveLocationSharing() {
     navigator.geolocation.clearWatch(driverLocationWatcherId);
     driverLocationWatcherId = null;
   }
+
+  driverLiveSharingTripId = null;
+  driverLiveLastSentAt = 0;
+  driverLiveLastCoords = null;
 }
+
 
 
 // ================= Map + Search + Pricing (Rider) =================
@@ -2574,6 +2616,9 @@ if (status === "completed") {
 let unsubscribeDriverTrip = null;
 let driverLocationWatcherId = null;
 let riderLiveMap = null;
+let driverLiveSharingTripId = null;
+let driverLiveLastSentAt = 0;
+let driverLiveLastCoords = null;
 let riderLiveDriverMarker = null;
 let riderLivePickupMarker = null;
 let riderLiveDropoffMarker = null;
@@ -2723,10 +2768,12 @@ if (info) {
 }
 
  if (shouldShareDriverLocation) {
-      startDriverLiveLocationSharing(driverId, tripId);
-    } else {
-      stopDriverLiveLocationSharing();
-    }
+  if (driverLiveSharingTripId !== tripId || driverLocationWatcherId === null) {
+    startDriverLiveLocationSharing(driverId, tripId);
+  }
+} else {
+  stopDriverLiveLocationSharing();
+}
     
     navBtn?.classList.add("hidden");
 
