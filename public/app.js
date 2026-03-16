@@ -1418,6 +1418,7 @@ function clearDriverLiveTracking() {
 function renderOrUpdateRiderLiveMap(trip, driverLocation) {
   const box = document.getElementById("riderLiveTrackingBox");
   const statusEl = document.getElementById("riderLiveTrackingStatus");
+  const distanceInfoEl = document.getElementById("riderLiveDistanceInfo");
   const mapEl = document.getElementById("riderLiveMap");
 
   if (!box || !mapEl) return;
