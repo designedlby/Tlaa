@@ -1513,80 +1513,7 @@ function renderOrUpdateRiderLiveMap(trip, driverLocation) {
 
 
 async function startDriverLiveLocationSharing(driverId, tripId) {
-  if (!navigator.geolocation) return;
-
-  // لو نفس الرحلة already شغالة، ما تعيدش تشغيل الـ watcher
-  if (driverLocationWatcherId !== null && driverLiveSharingTripId === tripId) {
-    return;
-  }
-
-  stopDriverLiveLocationSharing();
-
-  driverLiveSharingTripId = tripId;
-  driverLiveLastSentAt = 0;
-  driverLiveLastCoords = null;
-
-  driverLocationWatcherId = navigator.geolocation.watchPosition(
-    async (pos) => {
-      try {
-        const lat = Number(pos.coords.latitude);
-        const lng = Number(pos.coords.longitude);
-
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-
-        const now = Date.now();
-
-        // throttle: ابعت كل 15 ثانية على الأقل
-        const minIntervalMs = 30000;
-
-        // أو لو اتحرك أكثر من 100 متر تقريبًا
-        let movedEnough = true;
-        if (driverLiveLastCoords) {
-          const movedKm = distanceKm(
-            { lat: driverLiveLastCoords.lat, lng: driverLiveLastCoords.lng },
-            { lat, lng }
-          );
-          movedEnough = movedKm >= 0.1; // 100 متر
-        }
-
-        const enoughTimePassed = (now - driverLiveLastSentAt) >= minIntervalMs;
-
-        if (!enoughTimePassed && !movedEnough) {
-          return;
-        }
-
-        const payload = {
-          lat,
-          lng,
-          updatedAt: now
-        };
-
-        await updateDoc(doc(db, "trips", tripId), {
-          driverLiveLocation: payload
-        });
-
-        // حدّث users/{driverId}.location بشكل أخف: كل 30 ثانية فقط
-        if (!driverLiveLastSentAt || (now - driverLiveLastSentAt) >= 30000) {
-          await setDoc(doc(db, "users", driverId), {
-            location: payload
-          }, { merge: true });
-        }
-
-        driverLiveLastSentAt = now;
-        driverLiveLastCoords = { lat, lng };
-      } catch (e) {
-        console.error("startDriverLiveLocationSharing update error:", e);
-      }
-    },
-    (err) => {
-      console.error("Driver live location watch error:", err);
-    },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 10000,
-      timeout: 15000
-    }
-  );
+  return;
 }
 
 function stopDriverLiveLocationSharing() {
@@ -2536,14 +2463,8 @@ if (info) {
   `;
 }
 
- if (shouldShowLiveTracking && t.driverLiveLocation) {
-      renderOrUpdateRiderLiveMap(
-        { id: docSnap.id, ...t },
-        t.driverLiveLocation
-      );
-    } else {
-      clearDriverLiveTracking();
-    }
+ clearDriverLiveTracking();
+
     
 navBtn?.classList.add("hidden");
 
@@ -2767,13 +2688,8 @@ if (info) {
   `;
 }
 
- if (shouldShareDriverLocation) {
-  if (driverLiveSharingTripId !== tripId || driverLocationWatcherId === null) {
-    startDriverLiveLocationSharing(driverId, tripId);
-  }
-} else {
-  stopDriverLiveLocationSharing();
-}
+stopDriverLiveLocationSharing();
+
     
     navBtn?.classList.add("hidden");
 
