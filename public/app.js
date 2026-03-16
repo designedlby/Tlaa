@@ -1402,10 +1402,13 @@ function clearDriverLiveTracking() {
   const box = document.getElementById("riderLiveTrackingBox");
   const statusEl = document.getElementById("riderLiveTrackingStatus");
   const distanceInfoEl = document.getElementById("riderLiveDistanceInfo");
+  const etaInfoEl = document.getElementById("riderLiveEtaInfo");
+
 
   if (box) box.classList.add("hidden");
   if (statusEl) statusEl.textContent = "في انتظار تحديث الموقع...";
   if (distanceInfoEl) distanceInfoEl.textContent = "—";
+  if (etaInfoEl) etaInfoEl.textContent = "—";
 
   if (riderLiveMap) {
     riderLiveMap.remove();
@@ -1422,6 +1425,8 @@ function renderOrUpdateRiderLiveMap(trip, driverLocation) {
   const statusEl = document.getElementById("riderLiveTrackingStatus");
   const distanceInfoEl = document.getElementById("riderLiveDistanceInfo");
   const mapEl = document.getElementById("riderLiveMap");
+  const etaInfoEl = document.getElementById("riderLiveEtaInfo");
+
 
   if (!box || !mapEl) return;
 
@@ -1440,6 +1445,7 @@ function renderOrUpdateRiderLiveMap(trip, driverLocation) {
   box.classList.remove("hidden");
   if (statusEl) statusEl.textContent = "تعذر عرض التتبع الحي حاليًا.";
   if (distanceInfoEl) distanceInfoEl.textContent = "المسافة التقريبية غير متاحة.";
+  if (etaInfoEl) etaInfoEl.textContent = "الزمن التقريبي غير متاح.";
   return;
 }
   box.classList.remove("hidden");
@@ -1490,6 +1496,14 @@ function renderOrUpdateRiderLiveMap(trip, driverLocation) {
 
   if (distanceInfoEl) {
     distanceInfoEl.textContent = `السائق يبعد تقريبًا ${Number(kmToPickup).toFixed(1)} كم عن مكان الالتقاء.`;
+  }
+
+// تقدير زمني مبسط داخل المدن: متوسط 28 كم/س
+  const averageCitySpeedKmH = 28;
+  const etaMinutes = Math.max(1, Math.round((kmToPickup / averageCitySpeedKmH) * 60));
+
+  if (etaInfoEl) {
+    etaInfoEl.textContent = `الوصول المتوقع خلال ${etaMinutes} دقيقة تقريبًا.`;
   }
   
   if (statusEl) {
