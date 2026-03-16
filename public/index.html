@@ -477,6 +477,17 @@
       <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
   <p class="text-sm font-semibold">رحلتي الحالية</p>
   <div class="mt-2 text-xs text-slate-300" id="myTripInfo">لا يوجد طلب حاليًا.</div>
+        <!-- Live driver tracking for rider -->
+<div id="riderLiveTrackingBox" class="mt-4 hidden rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+  <div class="flex items-center justify-between gap-3">
+    <p class="text-sm font-semibold">موقع السائق الحالي</p>
+    <p id="riderLiveTrackingStatus" class="text-[11px] text-slate-400">في انتظار تحديث الموقع...</p>
+  </div>
+
+  <div class="mt-3 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black/20">
+    <div id="riderLiveMap" style="height: 220px;"></div>
+  </div>
+</div>
   <div class="mt-3 flex gap-2">
     <button id="cancelTripBtn"
       class="hidden flex-1 rounded-2xl bg-white/10 hover:bg-white/15 ring-1 ring-white/10 font-semibold py-3">
