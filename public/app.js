@@ -1867,27 +1867,54 @@ function closeMapsHelperModal() {
   modal?.classList.remove("flex");
 }
 
-function parseLatLngFromText(text) {
-  const raw = String(text || "").trim();
+function parseLatLngFromText(raw) {
+  const text = String(raw || "").trim();
 
-  if (!raw) return null;
+  // helper: يحاول تصحيح ترتيب الإحداثيات لمصر لو كانت معكوسة
+  function normalizeEgyptCoords(a, b) {
+    let lat = Number(a);
+    let lng = Number(b);
 
-  // صيغة مباشرة: lat,lng
-  let m = raw.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
-  if (m) {
-    return { lat: Number(m[1]), lng: Number(m[2]) };
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+    // لو مكتوبة صح أصلًا: lat ~ 22..32 و lng ~ 24..37
+    const looksLikeEgyptLatLng =
+      lat >= 20 && lat <= 33 &&
+      lng >= 24 && lng <= 37;
+
+    if (looksLikeEgyptLatLng) {
+      return { lat, lng };
+    }
+
+    // لو مكتوبة بالعكس: lng,lat
+    const looksLikeEgyptLngLat =
+      lng >= 20 && lng <= 33 &&
+      lat >= 24 && lat <= 37;
+
+    if (looksLikeEgyptLngLat) {
+      return { lat: lng, lng: lat };
+    }
+
+    // fallback: خليه كما هو
+    return { lat, lng };
   }
 
-  // صيغة جوجل مابس: .../@lat,lng,...
-  m = raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-  if (m) {
-    return { lat: Number(m[1]), lng: Number(m[2]) };
+  // حالة نص مباشر "x,y"
+  let match = text.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (match) {
+    return normalizeEgyptCoords(match[1], match[2]);
   }
 
-  // صيغة q=lat,lng
-  m = raw.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-  if (m) {
-    return { lat: Number(m[1]), lng: Number(m[2]) };
+  // حالة Google Maps URL فيها @lat,lng
+  match = text.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (match) {
+    return normalizeEgyptCoords(match[1], match[2]);
+  }
+
+  // حالة q=lat,lng أو ll=lat,lng
+  match = text.match(/[?&](?:q|ll)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (match) {
+    return normalizeEgyptCoords(match[1], match[2]);
   }
 
   return null;
