@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";                                    
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";               
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -2627,7 +2627,7 @@ document.getElementById("openDropoffMapsBtn")?.addEventListener("click", () => {
   openMapsHelperModal("dropoff");
 });
 
-document.getElementById("applyPickupMapsBtn")?.addEventListener("click", () => {
+document.getElementById("applyPickupMapsBtn")?.addEventListener("click", async () => {
   const raw = document.getElementById("pickupMapsInput")?.value?.trim();
   const parsed = parseLatLngFromText(raw);
 
@@ -2637,7 +2637,17 @@ document.getElementById("applyPickupMapsBtn")?.addEventListener("click", () => {
   }
 
   initMapOnce();
-  setPickup(parsed, raw);
+
+  const lat = Number(parsed.lat);
+  const lng = Number(parsed.lng);
+
+  const place = await reverseGeocode(lat, lng);
+
+  console.log("pickup parsed:", { lat, lng });
+  console.log("pickup reverseGeocode:", place);
+
+  setPickup(lat, lng, place.shortText, place.fullText);
+
   showAlert("تم تحديد مكان الركوب من Google Maps ✅", "success");
 });
 
@@ -2657,10 +2667,14 @@ document.getElementById("applyDropoffMapsBtn")?.addEventListener("click", async 
 
   const place = await reverseGeocode(lat, lng);
 
+  console.log("dropoff parsed:", { lat, lng });
+  console.log("dropoff reverseGeocode:", place);
+
   setDropoff(lat, lng, place.shortText, place.fullText);
 
   showAlert("تم تحديد الوجهة من Google Maps ✅", "success");
 });
+
 
 document.getElementById("closeMapsHelperBtn")?.addEventListener("click", () => {
   closeMapsHelperModal();
