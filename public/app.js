@@ -1401,9 +1401,11 @@ function renderMiniMap(containerId, trip) {
 function clearDriverLiveTracking() {
   const box = document.getElementById("riderLiveTrackingBox");
   const statusEl = document.getElementById("riderLiveTrackingStatus");
+  const distanceInfoEl = document.getElementById("riderLiveDistanceInfo");
 
   if (box) box.classList.add("hidden");
   if (statusEl) statusEl.textContent = "في انتظار تحديث الموقع...";
+  if (distanceInfoEl) distanceInfoEl.textContent = "—";
 
   if (riderLiveMap) {
     riderLiveMap.remove();
@@ -1435,11 +1437,11 @@ function renderOrUpdateRiderLiveMap(trip, driverLocation) {
   const hasDriver = Number.isFinite(driverLat) && Number.isFinite(driverLng);
 
   if (!hasPickup || !hasDropoff || !hasDriver) {
-    box.classList.remove("hidden");
-    if (statusEl) statusEl.textContent = "تعذر عرض التتبع الحي حاليًا.";
-    return;
-  }
-
+  box.classList.remove("hidden");
+  if (statusEl) statusEl.textContent = "تعذر عرض التتبع الحي حاليًا.";
+  if (distanceInfoEl) distanceInfoEl.textContent = "المسافة التقريبية غير متاحة.";
+  return;
+}
   box.classList.remove("hidden");
 
   if (!riderLiveMap || lastTrackedTripId !== trip.id) {
@@ -1481,6 +1483,15 @@ function renderOrUpdateRiderLiveMap(trip, driverLocation) {
     riderLiveMap?.invalidateSize();
   }, 100);
 
+    const kmToPickup = distanceKm(
+    { lat: driverLat, lng: driverLng },
+    { lat: pickupLat, lng: pickupLng }
+  );
+
+  if (distanceInfoEl) {
+    distanceInfoEl.textContent = `السائق يبعد تقريبًا ${Number(kmToPickup).toFixed(1)} كم عن مكان الالتقاء.`;
+  }
+  
   if (statusEl) {
     statusEl.textContent = `آخر تحديث: ${new Date().toLocaleTimeString("ar-EG")}`;
   }
