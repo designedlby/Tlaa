@@ -24,6 +24,14 @@ import {
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+import {
+  getDatabase,
+  ref as rtdbRef,
+  set as rtdbSet,
+  onValue,
+  remove as rtdbRemove
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
 // ✅ ضع بيانات مشروعك هنا من Firebase Console (Web app config)
 const firebaseConfig = {
   apiKey: "AIzaSyCf91J74YAinpUsiwo2uKHb1ejp3aKlLw8",
@@ -32,6 +40,7 @@ const firebaseConfig = {
   storageBucket: "tal3a-f4d9b.firebasestorage.app",
   messagingSenderId: "103353080703",
   appId: "1:103353080703:web:b31304303d991c8b34584a",
+  databaseURL: "https://tal3a-f4d9b-default-rtdb.europe-west1.firebasedatabase.app/",
   measurementId: "G-KGY2LHVWXK"
 };
 
@@ -117,6 +126,7 @@ try {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+  rtdb = getDatabase(app);
 } catch (e) {
   console.error(e);
   showAlert("في مشكلة في إعداد firebaseConfig. تأكد إنك لصقت config صح داخل app.js.", "error");
@@ -1511,6 +1521,262 @@ function renderOrUpdateRiderLiveMap(trip, driverLocation) {
   }
 }
 
+function getLiveTripDriverPath(tripId, driverId) {
+  return `liveTrips/${tripId}/drivers/${driverId}`;
+}
+
+function stopDriverLiveLocationSharingRTDB() {
+  if (driverLiveLocationWatchId !== null) {
+    navigator.geolocation.clearWatch(driverLiveLocationWatchId);
+    driverLiveLocationWatchId = null;
+  }
+
+  driverLiveCurrentTripId = null;
+  driverLiveLastSentAt = 0;
+  driverLiveLastCoords = null;
+}
+
+async function clearDriverLiveLocationRTDB(tripId, driverId) {
+  if (!tripId || !driverId) return;
+
+  try {
+    await rtdbRemove(rtdbRef(rtdb, getLiveTripDriverPath(tripId, driverId)));
+  } catch (e) {
+    console.error("clearDriverLiveLocationRTDB error:", e);
+  }
+}
+
+async function startDriverLiveLocationSharingRTDB(driverId, tripId) {
+  if (!navigator.geolocation || !driverId || !tripId) return;
+
+  // لو نفس الرحلة شغالة بالفعل لا تعيد تشغيل watcher
+  if (driverLiveLocationWatchId !== null && driverLiveCurrentTripId === tripId) {
+    return;
+  }
+
+  stopDriverLiveLocationSharingRTDB();
+
+  driverLiveCurrentTripId = tripId;
+  driverLiveLastSentAt = 0;
+  driverLiveLastCoords = null;
+
+  driverLiveLocationWatchId = navigator.geolocation.watchPosition(
+    async (pos) => {
+      try {
+        const lat = Number(pos.coords.latitude);
+        const lng = Number(pos.coords.longitude);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const now = Date.now();
+
+        // ابعت كل 30 ثانية كحد أدنى
+        const minIntervalMs = 30000;
+
+        let movedEnough = true;
+        if (driverLiveLastCoords) {
+          const movedKm = distanceKm(
+            { lat: driverLiveLastCoords.lat, lng: driverLiveLastCoords.lng },
+            { lat, lng }
+          );
+          movedEnough = movedKm >= 0.1; // 100 متر
+        }
+
+        const enoughTimePassed = (now - driverLiveLastSentAt) >= minIntervalMs;
+
+        // لا تكتب إلا لو مرّ وقت كفاية أو تحرّك فعلاً
+        if (!enoughTimePassed && !movedEnough) {
+          return;
+        }
+
+        const payload = {
+          lat,
+          lng,
+          updatedAt: now
+        };
+
+        await rtdbSet(
+          rtdbRef(rtdb, getLiveTripDriverPath(tripId, driverId)),
+          payload
+        );
+
+        driverLiveLastSentAt = now;
+        driverLiveLastCoords = { lat, lng };
+      } catch (e) {
+        console.error("startDriverLiveLocationSharingRTDB error:", e);
+      }
+    },
+    (err) => {
+      console.error("Driver RTDB watchPosition error:", err);
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 10000,
+      timeout: 15000
+    }
+  );
+}
+
+function clearRiderLiveTrackingUI() {
+  const box = document.getElementById("riderLiveTrackingBox");
+  const statusEl = document.getElementById("riderLiveTrackingStatus");
+  const distanceInfoEl = document.getElementById("riderLiveDistanceInfo");
+  const etaInfoEl = document.getElementById("riderLiveEtaInfo");
+
+  if (box) box.classList.add("hidden");
+  if (statusEl) statusEl.textContent = "في انتظار تحديث الموقع...";
+  if (distanceInfoEl) distanceInfoEl.textContent = "—";
+  if (etaInfoEl) etaInfoEl.textContent = "—";
+
+  if (unsubscribeRiderLiveLocation) {
+    unsubscribeRiderLiveLocation();
+    unsubscribeRiderLiveLocation = null;
+  }
+
+  if (riderLiveMap) {
+    riderLiveMap.remove();
+    riderLiveMap = null;
+    riderLiveDriverMarker = null;
+    riderLivePickupMarker = null;
+    riderLiveDropoffMarker = null;
+    riderLivePolyline = null;
+    riderLiveCurrentTripId = null;
+  }
+}
+
+function renderOrUpdateRiderLiveMapFromRTDB(trip, driverLocation) {
+  const box = document.getElementById("riderLiveTrackingBox");
+  const statusEl = document.getElementById("riderLiveTrackingStatus");
+  const distanceInfoEl = document.getElementById("riderLiveDistanceInfo");
+  const etaInfoEl = document.getElementById("riderLiveEtaInfo");
+  const mapEl = document.getElementById("riderLiveMap");
+
+  if (!box || !mapEl) return;
+
+  const pickupLat = Number(trip.pickupLat);
+  const pickupLng = Number(trip.pickupLng);
+  const dropoffLat = Number(trip.dropoffLat);
+  const dropoffLng = Number(trip.dropoffLng);
+  const driverLat = Number(driverLocation?.lat);
+  const driverLng = Number(driverLocation?.lng);
+
+  const hasPickup = Number.isFinite(pickupLat) && Number.isFinite(pickupLng);
+  const hasDropoff = Number.isFinite(dropoffLat) && Number.isFinite(dropoffLng);
+  const hasDriver = Number.isFinite(driverLat) && Number.isFinite(driverLng);
+
+  box.classList.remove("hidden");
+
+  if (!hasPickup || !hasDropoff || !hasDriver) {
+    if (statusEl) statusEl.textContent = "تعذر عرض التتبع الحي حاليًا.";
+    if (distanceInfoEl) distanceInfoEl.textContent = "المسافة التقريبية غير متاحة.";
+    if (etaInfoEl) etaInfoEl.textContent = "الزمن التقريبي غير متاح.";
+    return;
+  }
+
+  if (!riderLiveMap || riderLiveCurrentTripId !== trip.id) {
+    if (riderLiveMap) {
+      riderLiveMap.remove();
+      riderLiveMap = null;
+    }
+
+    riderLiveMap = L.map("riderLiveMap", {
+      zoomControl: true,
+      attributionControl: true
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(riderLiveMap);
+
+    riderLivePickupMarker = L.marker([pickupLat, pickupLng]).addTo(riderLiveMap);
+    riderLiveDropoffMarker = L.marker([dropoffLat, dropoffLng]).addTo(riderLiveMap);
+    riderLiveDriverMarker = L.marker([driverLat, driverLng]).addTo(riderLiveMap);
+
+    riderLivePolyline = L.polyline(
+      [
+        [driverLat, driverLng],
+        [pickupLat, pickupLng],
+        [dropoffLat, dropoffLng]
+      ],
+      { weight: 4, opacity: 0.8 }
+    ).addTo(riderLiveMap);
+
+    riderLiveCurrentTripId = trip.id;
+  } else {
+    riderLivePickupMarker?.setLatLng([pickupLat, pickupLng]);
+    riderLiveDropoffMarker?.setLatLng([dropoffLat, dropoffLng]);
+    riderLiveDriverMarker?.setLatLng([driverLat, driverLng]);
+
+    riderLivePolyline?.setLatLngs([
+      [driverLat, driverLng],
+      [pickupLat, pickupLng],
+      [dropoffLat, dropoffLng]
+    ]);
+  }
+
+  const bounds = L.latLngBounds([
+    [pickupLat, pickupLng],
+    [dropoffLat, dropoffLng],
+    [driverLat, driverLng]
+  ]);
+
+  riderLiveMap.fitBounds(bounds, { padding: [30, 30] });
+
+  setTimeout(() => {
+    riderLiveMap?.invalidateSize();
+  }, 100);
+
+  const kmToPickup = distanceKm(
+    { lat: driverLat, lng: driverLng },
+    { lat: pickupLat, lng: pickupLng }
+  );
+
+  if (distanceInfoEl) {
+    distanceInfoEl.textContent = `السائق يبعد تقريبًا ${Number(kmToPickup).toFixed(1)} كم عن مكان الالتقاء.`;
+  }
+
+  const averageCitySpeedKmH = 28;
+  const etaMinutes = Math.max(1, Math.round((kmToPickup / averageCitySpeedKmH) * 60));
+
+  if (etaInfoEl) {
+    etaInfoEl.textContent = `الوصول المتوقع خلال ${etaMinutes} دقيقة تقريبًا.`;
+  }
+
+  if (statusEl) {
+    const updatedAt = driverLocation?.updatedAt ? new Date(driverLocation.updatedAt) : new Date();
+    statusEl.textContent = `آخر تحديث: ${updatedAt.toLocaleTimeString("ar-EG")}`;
+  }
+}
+
+function listenToDriverLiveLocationRTDB(trip) {
+  if (!trip?.id || !trip?.driverId) {
+    clearRiderLiveTrackingUI();
+    return;
+  }
+
+  if (unsubscribeRiderLiveLocation) {
+    unsubscribeRiderLiveLocation();
+    unsubscribeRiderLiveLocation = null;
+  }
+
+  const locationRef = rtdbRef(rtdb, getLiveTripDriverPath(trip.id, trip.driverId));
+
+  unsubscribeRiderLiveLocation = onValue(locationRef, (snap) => {
+    const data = snap.val();
+
+    if (!data) {
+      clearRiderLiveTrackingUI();
+      return;
+    }
+
+    renderOrUpdateRiderLiveMapFromRTDB(trip, data);
+  }, (err) => {
+    console.error("listenToDriverLiveLocationRTDB error:", err);
+    clearRiderLiveTrackingUI();
+  });
+}
+
 
 async function startDriverLiveLocationSharing(driverId, tripId) {
   return;
@@ -2313,8 +2579,9 @@ const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
     createTripBtn.classList.remove("opacity-50", "cursor-not-allowed");
     createTripBtn.textContent = "إرسال الطلب";
   }
-            clearDriverLiveTracking();
 navBtn?.classList.add("hidden");
+            clearRiderLiveTrackingUI();
+
   return;
 }
 
@@ -2322,7 +2589,7 @@ navBtn?.classList.add("hidden");
     const t = docSnap.data();
 
     const status = t.status || "pending";
-    const shouldShowLiveTracking = ["accepted", "cancel_requested", "waiting_return"].includes(status);
+    const shouldShowLiveTrackingRTDB = ["accepted", "cancel_requested", "waiting_return"].includes(status);
     const canNavigate = ["accepted", "cancel_requested", "waiting_return"].includes(status);
     const isActiveTrip = ["pending", "accepted", "cancel_requested", "waiting_return"].includes(status);
     const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
@@ -2463,8 +2730,11 @@ if (info) {
   `;
 }
 
- clearDriverLiveTracking();
-
+       if (shouldShowLiveTrackingRTDB && t.driverId) {
+      listenToDriverLiveLocationRTDB({ id: docSnap.id, ...t });
+    } else {
+      clearRiderLiveTrackingUI();
+    }
     
 navBtn?.classList.add("hidden");
 
@@ -2545,6 +2815,13 @@ let riderLivePickupMarker = null;
 let riderLiveDropoffMarker = null;
 let lastTrackedTripId = null;
 
+let unsubscribeRiderLiveLocation = null;
+
+let driverLiveLocationWatchId = null;
+let driverLiveCurrentTripId = null;
+let riderLivePolyline = null;
+let riderLiveCurrentTripId = null;
+
 // هنعتبر "الرحلة الحالية" هي آخر رحلة للسائق ليست completed/cancelled
 function watchDriverCurrentTrip(driverId) {
   const info = document.getElementById("driverTripInfo");
@@ -2573,7 +2850,7 @@ const submitDriverRatingBtn = document.getElementById("submitDriverRatingBtn");
       startBtn?.classList.add("hidden");
 driverRatingBox?.classList.add("hidden");
       navBtn?.classList.add("hidden");
-            stopDriverLiveLocationSharing();
+            stopDriverLiveLocationSharingRTDB();
 return;
     }
 
@@ -2582,7 +2859,7 @@ return;
     const tripId = docSnap.id;
 
     const status = t.status || "accepted";
-    const shouldShareDriverLocation = ["accepted", "cancel_requested", "waiting_return"].includes(status);
+    const shouldShareDriverLocationRTDB = ["accepted", "cancel_requested", "waiting_return"].includes(status);
     const canNavigate = ["accepted", "cancel_requested", "waiting_return"].includes(status);
     const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
 const kmTxt = t.kmEstimated ? ` | ${t.kmEstimated} كم` : "";
@@ -2688,8 +2965,14 @@ if (info) {
   `;
 }
 
-stopDriverLiveLocationSharing();
-
+     if (shouldShareDriverLocationRTDB) {
+      if (driverLiveCurrentTripId !== tripId || driverLiveLocationWatchId === null) {
+        startDriverLiveLocationSharingRTDB(driverId, tripId);
+      }
+    } else {
+      stopDriverLiveLocationSharingRTDB();
+      clearDriverLiveLocationRTDB(tripId, driverId);
+    }
     
     navBtn?.classList.add("hidden");
 
