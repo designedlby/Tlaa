@@ -1568,6 +1568,9 @@ async function startDriverLiveLocationSharingRTDB(driverId, tripId) {
 
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
+        lastKnownBrowserLocation = { lat, lng };
+lastKnownBrowserLocationAt = Date.now();
+      
         const now = Date.now();
 
         // ابعت كل 30 ثانية كحد أدنى
@@ -1607,13 +1610,21 @@ async function startDriverLiveLocationSharingRTDB(driverId, tripId) {
       }
     },
     (err) => {
-      console.error("Driver RTDB watchPosition error:", err);
-    },
+  console.warn("Driver RTDB watchPosition warning:", err);
+
+  // لا توقف الرحلة ولا تكسر التتبع كله بسبب timeout أو unavailable مؤقت
+  if (err?.code === 1) {
+    // permission denied
+    console.warn("Driver denied geolocation permission.");
+  }
+},
+
     {
-      enableHighAccuracy: true,
-      maximumAge: 10000,
-      timeout: 15000
-    }
+  enableHighAccuracy: false,
+  maximumAge: 30000,
+  timeout: 30000
+}
+
   );
 }
 
@@ -1905,7 +1916,17 @@ function getGoogleMapsDirectionsUrl({ origin, pickup, destination }) {
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-function getCurrentBrowserLocation() {
+function getCurrentBrowserLocation(options = {}) {
+  const maxFreshMs = options.maxFreshMs ?? 30000;
+
+  // لو عندنا موقع حديث خلال آخر 30 ثانية، استخدمه فورًا
+  if (
+    lastKnownBrowserLocation &&
+    (Date.now() - lastKnownBrowserLocationAt) <= maxFreshMs
+  ) {
+    return Promise.resolve(lastKnownBrowserLocation);
+  }
+
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation not supported"));
@@ -1914,20 +1935,26 @@ function getCurrentBrowserLocation() {
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        resolve({
+        const location = {
           lat: Number(pos.coords.latitude),
           lng: Number(pos.coords.longitude)
-        });
+        };
+
+        lastKnownBrowserLocation = location;
+        lastKnownBrowserLocationAt = Date.now();
+
+        resolve(location);
       },
       (err) => reject(err),
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 10000
+        enableHighAccuracy: false,
+        timeout: 20000,
+        maximumAge: 60000
       }
     );
   });
 }
+
 
 async function openTripNavigation(trip) {
   const pickup = {
@@ -1949,7 +1976,7 @@ async function openTripNavigation(trip) {
   }
 
   try {
-    const origin = await getCurrentBrowserLocation();
+const origin = await getCurrentBrowserLocation({ maxFreshMs: 120000 });
 
     const url = getGoogleMapsDirectionsUrl({
       origin,
@@ -2810,6 +2837,8 @@ let riderLiveMap = null;
 let driverLiveSharingTripId = null;
 let driverLiveLastSentAt = 0;
 let driverLiveLastCoords = null;
+let lastKnownBrowserLocation = null;
+let lastKnownBrowserLocationAt = 0;
 let riderLiveDriverMarker = null;
 let riderLivePickupMarker = null;
 let riderLiveDropoffMarker = null;
