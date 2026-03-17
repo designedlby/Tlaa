@@ -4266,3 +4266,16 @@ document.getElementById("openDriverNavigationBtn")?.addEventListener("click", as
     showAlert("فشل فتح الملاحة.", "error");
   }
 });
+
+document.getElementById("refreshPendingTripsBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    await loadPendingTripsForDriver(user.uid);
+    showAlert("تم تحديث الطلبات ✅", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل تحديث الطلبات.", "error");
+  }
+});
