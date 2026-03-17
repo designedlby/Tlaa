@@ -21,16 +21,14 @@ import {
   limit,
   getDocs,
   updateDoc,
-  onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
-import {
+  onSnapshot,
   getDatabase,
   ref as rtdbRef,
   set as rtdbSet,
   onValue,
   remove as rtdbRemove
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
 
 // ✅ ضع بيانات مشروعك هنا من Firebase Console (Web app config)
 const firebaseConfig = {
