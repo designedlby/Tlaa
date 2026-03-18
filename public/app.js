@@ -1323,34 +1323,38 @@ async function updateDriverLocation(uid) {
     return;
   }
 
-  return new Promise((resolve, reject) => {
-    try {
-  const location = await getCurrentBrowserLocation();
+  try {
+    const location = await getCurrentBrowserLocation();
 
-  const lat = location.lat;
-  const lng = location.lng;
+    const lat = Number(location.lat);
+    const lng = Number(location.lng);
 
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    showAlert("تعذر تحديد موقعك الحالي.", "error");
-    return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      if (statusEl) statusEl.textContent = "تعذر تحديد موقعك الحالي.";
+      return;
+    }
+
+    await setDoc(doc(db, "users", uid), {
+      location: {
+        lat,
+        lng,
+        updatedAt: Date.now()
+      }
+    }, { merge: true });
+
+    if (statusEl) {
+      statusEl.textContent = `تم تحديث موقعك: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+
+    if (typeof map !== "undefined" && map) {
+      map.setView([lat, lng], 15);
+    }
+
+    return { lat, lng };
+  } catch (e) {
+    console.error(e);
+    if (statusEl) statusEl.textContent = "تعذر تحديث الموقع. تأكد من إذن الموقع وحاول مرة أخرى.";
   }
-
-  map.setView([lat, lng], 15);
-
-  if (typeof selecting === "string" && selecting === "dropoff") {
-    setDropoff(lat, lng, "موقعي الحالي");
-    selecting = "pickup";
-  } else {
-    setPickup(lat, lng, "موقعي الحالي");
-    selecting = "dropoff";
-  }
-
-  updatePickModeLabel?.();
-  showAlert("تم تحديد موقعك الحالي ✅", "success");
-} catch (e) {
-  console.error(e);
-  showAlert("تعذر تحديد موقعك الحالي. تأكد من إذن الموقع والمحاولة مرة أخرى.", "error");
-}
 }
 
 function renderMiniMap(containerId, trip) {
