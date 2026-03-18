@@ -723,10 +723,19 @@ return;
 }
 
 async function acceptTrip(driverId, tripId) {
-  const ref = doc(db, "trips", tripId);
+  const tripRef = doc(db, "trips", tripId);
 
-  // تحديث واحد: pending -> accepted + driverId
-  await updateDoc(ref, {
+  // هات الرحلة أولًا عشان نعرف riderId
+  const tripSnap = await getDoc(tripRef);
+  if (!tripSnap.exists()) {
+    throw new Error("Trip not found");
+  }
+
+  const tripData = tripSnap.data();
+  const riderId = tripData.riderId || null;
+
+  // pending -> accepted + driverId
+  await updateDoc(tripRef, {
     status: "accepted",
     driverId,
     acceptedAt: serverTimestamp(),
@@ -735,7 +744,20 @@ async function acceptTrip(driverId, tripId) {
     cancelledAt: null,
     completedAt: null
   });
+
+  // فعّل activeTripId للسائق
+  await updateDoc(doc(db, "users", driverId), {
+    activeTripId: tripId
+  });
+
+  // وتأكد أيضًا أن الراكب مربوط بنفس الرحلة
+  if (riderId) {
+    await updateDoc(doc(db, "users", riderId), {
+      activeTripId: tripId
+    });
+  }
 }
+
 
 function escapeHtml(str) {
   return String(str || "")
@@ -2854,145 +2876,174 @@ function watchDriverCurrentTrip(driverId) {
   const info = document.getElementById("driverTripInfo");
   const approveBtn = document.getElementById("approveCancelBtn");
   const completeBtn = document.getElementById("completeTripBtn");
-  const startBtn = document.getElementById("startTripBtn"); // مش هنستخدمه دلوقتي (اختياري)
+  const startBtn = document.getElementById("startTripBtn");
   const navBtn = document.getElementById("openDriverNavigationBtn");
   const driverRatingBox = document.getElementById("driverRatingBox");
-const driverRatingStatus = document.getElementById("driverRatingStatus");
-const submitDriverRatingBtn = document.getElementById("submitDriverRatingBtn");
-  
+  const driverRatingStatus = document.getElementById("driverRatingStatus");
+  const submitDriverRatingBtn = document.getElementById("submitDriverRatingBtn");
+
   if (unsubscribeDriverTrip) unsubscribeDriverTrip();
 
-  const q = query(
-    collection(db, "trips"),
-    where("driverId", "==", driverId),
-    orderBy("acceptedAt", "desc"),
-    limit(1)
-  );
+  const userRef = doc(db, "users", driverId);
 
-  unsubscribeDriverTrip = onSnapshot(q, async (snap) => {
-    if (snap.empty) {
+  unsubscribeDriverTrip = onSnapshot(userRef, async (userSnap) => {
+    if (!userSnap.exists()) {
       if (info) info.textContent = "لا توجد رحلة حالية.";
       approveBtn?.classList.add("hidden");
       completeBtn?.classList.add("hidden");
       startBtn?.classList.add("hidden");
-driverRatingBox?.classList.add("hidden");
+      driverRatingBox?.classList.add("hidden");
       navBtn?.classList.add("hidden");
-            stopDriverLiveLocationSharingRTDB();
-return;
+      stopDriverLiveLocationSharingRTDB();
+      return;
     }
 
-    const docSnap = snap.docs[0];
-    const t = docSnap.data();
-    const tripId = docSnap.id;
+    const userData = userSnap.data();
+    const activeTripId = userData.activeTripId || null;
+
+    if (!activeTripId) {
+      if (info) info.textContent = "لا توجد رحلة حالية.";
+      approveBtn?.classList.add("hidden");
+      completeBtn?.classList.add("hidden");
+      startBtn?.classList.add("hidden");
+      driverRatingBox?.classList.add("hidden");
+      navBtn?.classList.add("hidden");
+      stopDriverLiveLocationSharingRTDB();
+      return;
+    }
+
+    const tripRef = doc(db, "trips", activeTripId);
+    const tripSnap = await getDoc(tripRef);
+
+    if (!tripSnap.exists()) {
+      if (info) info.textContent = "لا توجد رحلة حالية.";
+      approveBtn?.classList.add("hidden");
+      completeBtn?.classList.add("hidden");
+      startBtn?.classList.add("hidden");
+      driverRatingBox?.classList.add("hidden");
+      navBtn?.classList.add("hidden");
+      stopDriverLiveLocationSharingRTDB();
+
+      // تنظيف لو activeTripId كان يشير لرحلة محذوفة/غير موجودة
+      await updateDoc(doc(db, "users", driverId), {
+        activeTripId: null
+      });
+
+      return;
+    }
+
+    const tripId = tripSnap.id;
+    const t = tripSnap.data();
 
     const status = t.status || "accepted";
     const shouldShareDriverLocationRTDB = ["accepted", "cancel_requested", "waiting_return"].includes(status);
     const canNavigate = ["accepted", "cancel_requested", "waiting_return"].includes(status);
-    const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
-const kmTxt = t.kmEstimated ? ` | ${t.kmEstimated} كم` : "";
+    const priceTxt = t.price ? `${t.price} جنيه` : "غير محدد";
+    const kmTxt = t.kmEstimated ? `${t.kmEstimated} كم` : "غير محدد";
 
-let riderTxt = "";
-if (t.riderId) {
-  try {
-    const riderRef = doc(db, "users", t.riderId);
-    const riderSnap = await getDoc(riderRef);
+    let riderTxt = "";
+    if (t.riderId) {
+      try {
+        const riderRef = doc(db, "users", t.riderId);
+        const riderSnap = await getDoc(riderRef);
 
-    if (riderSnap.exists()) {
-      const r = riderSnap.data();
+        if (riderSnap.exists()) {
+          const r = riderSnap.data();
 
-      const name = r.name ? escapeHtml(r.name) : "راكب";
-      const phone = r.phone ? normalizePhone(r.phone) : "";
-      const waPhone = r.phone ? phoneForWhatsApp(r.phone) : "";
-      const riderRating = await getUserAverageRating(t.riderId);
-      
-      const phoneHtml = phone
-        ? `
-          <a class="inline-flex items-center gap-2 rounded-2xl bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
-             href="tel:${phone}">
-            <span>📞</span>
-            <span>${phone}</span>
-          </a>
-        `
-        : "";
+          const name = r.name ? escapeHtml(r.name) : "راكب";
+          const phone = r.phone ? normalizePhone(r.phone) : "";
+          const waPhone = r.phone ? phoneForWhatsApp(r.phone) : "";
+          const riderRatingAvg = Number(r.ratingAvg || 0).toFixed(1);
+          const riderRatingCount = Number(r.ratingCount || 0);
 
-      const waHtml = waPhone
-        ? `
-          <a class="inline-flex items-center gap-2 rounded-2xl bg-green-500/15 px-3 py-2 text-xs font-semibold text-green-300 ring-1 ring-green-500/20 hover:bg-green-500/20"
-             target="_blank"
-             href="https://wa.me/${waPhone}">
-            <span>💬</span>
-            <span>واتساب</span>
-          </a>
-        `
-        : "";
+          const phoneHtml = phone
+            ? `
+              <a class="inline-flex items-center gap-2 rounded-2xl bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
+                 href="tel:${phone}">
+                <span>📞</span>
+                <span>${phone}</span>
+              </a>
+            `
+            : "";
 
-      riderTxt = `
-  <div class="mt-3 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="min-w-0">
-        <div class="text-sm font-semibold text-white">بيانات الراكب</div>
-        <div class="mt-1 text-xs text-slate-300 break-all">${name}</div>
-      </div>
+          const waHtml = waPhone
+            ? `
+              <a class="inline-flex items-center gap-2 rounded-2xl bg-green-500/15 px-3 py-2 text-xs font-semibold text-green-300 ring-1 ring-green-500/20 hover:bg-green-500/20"
+                 target="_blank"
+                 href="https://wa.me/${waPhone}">
+                <span>💬</span>
+                <span>واتساب</span>
+              </a>
+            `
+            : "";
 
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
-          <span>⭐</span>
-          <span>${riderRating.avg || 0} / 5</span>
-          <span class="text-slate-400">(${riderRating.count})</span>
-        </span>
+          riderTxt = `
+            <div class="mt-3 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-sm font-semibold text-white">بيانات الراكب</div>
+                  <div class="mt-1 text-xs text-slate-300 break-all">${name}</div>
+                </div>
 
-        <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 ring-1 ring-indigo-500/20">
-          <span class="h-2 w-2 rounded-full bg-current"></span>
-          <span>رحلتك الحالية</span>
-        </span>
-      </div>
-    </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
+                    <span>⭐</span>
+                    <span>${riderRatingAvg} / 5</span>
+                    <span class="text-slate-400">(${riderRatingCount})</span>
+                  </span>
 
-          <div class="mt-3 flex flex-wrap gap-2">
-            ${phoneHtml}
-            ${waHtml}
+                  <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 ring-1 ring-indigo-500/20">
+                    <span class="h-2 w-2 rounded-full bg-current"></span>
+                    <span>رحلتك الحالية</span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap gap-2">
+                ${phoneHtml}
+                ${waHtml}
+              </div>
+            </div>
+          `;
+        } else {
+          riderTxt = `
+            <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
+              تعذر تحميل بيانات الراكب.
+            </div>
+          `;
+        }
+      } catch (e) {
+        console.error(e);
+        riderTxt = `
+          <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
+            تعذر تحميل بيانات الراكب.
+          </div>
+        `;
+      }
+    }
+
+    if (info) {
+      info.innerHTML = `
+        <div class="flex flex-wrap items-center gap-2">
+          ${statusBadge(status)}
+        </div>
+
+        <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-xs text-slate-400">خط الرحلة</div>
+          <div class="mt-1 text-sm font-semibold text-white break-all">
+            ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
+          </div>
+          <div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-300">
+            <span>المسافة: ${kmTxt}</span>
+            <span>السعر: ${priceTxt}</span>
           </div>
         </div>
-      `;
-    } else {
-      riderTxt = `
-        <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
-          تعذر تحميل بيانات الراكب.
-        </div>
+
+        ${riderTxt}
       `;
     }
-  } catch (e) {
-    console.error(e);
-    riderTxt = `
-      <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
-        تعذر تحميل بيانات الراكب.
-      </div>
-    `;
-  }
-}
 
-if (info) {
-  info.innerHTML = `
-    <div class="flex flex-wrap items-center gap-2">
-      ${statusBadge(status)}
-    </div>
-
-    <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
-      <div class="text-xs text-slate-400">خط الرحلة</div>
-      <div class="mt-1 text-sm font-semibold text-white break-all">
-        ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
-      </div>
-      <div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-300">
-        <span>${kmTxt}</span>
-        <span>${priceTxt}</span>
-      </div>
-    </div>
-
-    ${riderTxt}
-  `;
-}
-
-     if (shouldShareDriverLocationRTDB) {
+    if (shouldShareDriverLocationRTDB) {
       if (driverLiveCurrentTripId !== tripId || driverLiveLocationWatchId === null) {
         startDriverLiveLocationSharingRTDB(driverId, tripId);
       }
@@ -3000,15 +3051,14 @@ if (info) {
       stopDriverLiveLocationSharingRTDB();
       clearDriverLiveLocationRTDB(tripId, driverId);
     }
-    
+
     navBtn?.classList.add("hidden");
+    if (canNavigate) {
+      navBtn?.classList.remove("hidden");
+      navBtn?.setAttribute("data-trip", tripId);
+    }
 
-if (canNavigate) {
-  navBtn?.classList.remove("hidden");
-  navBtn?.setAttribute("data-trip", tripId);
-}
-
-    // أخفي الكل افتراضيًا
+    // أخفِ الكل افتراضيًا
     approveBtn?.classList.add("hidden");
     completeBtn?.classList.add("hidden");
     startBtn?.classList.add("hidden");
@@ -3029,28 +3079,27 @@ if (canNavigate) {
     startBtn?.setAttribute("data-trip", tripId);
 
     // Rating UI for driver after completed
-driverRatingBox?.classList.add("hidden");
-if (driverRatingStatus) driverRatingStatus.textContent = "";
-submitDriverRatingBtn?.setAttribute("data-trip", tripId);
+    driverRatingBox?.classList.add("hidden");
+    if (driverRatingStatus) driverRatingStatus.textContent = "";
+    submitDriverRatingBtn?.setAttribute("data-trip", tripId);
 
-if (status === "completed") {
-  driverRatingBox?.classList.remove("hidden");
+    if (status === "completed") {
+      driverRatingBox?.classList.remove("hidden");
 
-  try {
-    const ratingRef = doc(db, "trip_ratings", `${tripId}_driver`);
-    const ratingSnap = await getDoc(ratingRef);
+      try {
+        const ratingRef = doc(db, "trip_ratings", `${tripId}_driver`);
+        const ratingSnap = await getDoc(ratingRef);
 
-    if (ratingSnap.exists()) {
-      const ratingData = ratingSnap.data();
-      if (driverRatingStatus) {
-        driverRatingStatus.textContent = `تم إرسال تقييمك للراكب ✅ (${ratingData.score || "-"}/5)`;
+        if (ratingSnap.exists()) {
+          const ratingData = ratingSnap.data();
+          if (driverRatingStatus) {
+            driverRatingStatus.textContent = `تم إرسال تقييمك للراكب ✅ (${ratingData.score || "-"}/5)`;
+          }
+        }
+      } catch (e) {
+        console.error(e);
       }
     }
-  } catch (e) {
-    console.error(e);
-  }
-}
-    
   }, (err) => {
     console.error(err);
     showAlert("مشكلة في متابعة رحلة السائق الحالية (Realtime).", "error");
@@ -3087,6 +3136,23 @@ document.getElementById("cancelTripBtn")?.addEventListener("click", async () => 
 
   try {
     await updateDoc(doc(db, "trips", tripId), { status: "cancelled" });
+    const tripSnap = await getDoc(doc(db, "trips", tripId));
+if (tripSnap.exists()) {
+  const tripData = tripSnap.data();
+
+  if (tripData.riderId) {
+    await updateDoc(doc(db, "users", tripData.riderId), {
+      activeTripId: null
+    });
+  }
+
+  if (tripData.driverId) {
+    await updateDoc(doc(db, "users", tripData.driverId), {
+      activeTripId: null
+    });
+  }
+}
+
     showAlert("تم إلغاء الطلب ✅", "success");
   } catch (e) {
     console.error(e);
@@ -3130,6 +3196,23 @@ document.getElementById("approveCancelBtn")?.addEventListener("click", async () 
       cancelledAt: serverTimestamp(),
       cancelledBy: user.uid
     });
+    const tripSnap = await getDoc(doc(db, "trips", tripId));
+if (tripSnap.exists()) {
+  const tripData = tripSnap.data();
+
+  if (tripData.riderId) {
+    await updateDoc(doc(db, "users", tripData.riderId), {
+      activeTripId: null
+    });
+  }
+
+  if (tripData.driverId) {
+    await updateDoc(doc(db, "users", tripData.driverId), {
+      activeTripId: null
+    });
+  }
+}
+
     showAlert("تم إلغاء الرحلة ✅", "success");
   } catch (e) {
     console.error(e);
