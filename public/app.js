@@ -115,9 +115,11 @@ async function upsertUserProfile(db, user, name, role) {
     role,
     ratingAvg: 5,
     ratingCount: 0,
+    activeTripId: null,
     createdAt: serverTimestamp()
   }, { merge: true });
 }
+
 
 // ✅ تشغيل Firebase
 let app, auth, db, rtdb;
@@ -407,20 +409,17 @@ const dropoff =
   const riderStatus = document.getElementById("riderStatus");
 
     // منع إنشاء أكثر من رحلة نشطة لنفس الراكب
-  const activeTripQuery = query(
-    collection(db, "trips"),
-    where("riderId", "==", riderId),
-    where("status", "in", ["pending", "accepted", "cancel_requested", "waiting_return"]),
-    limit(1)
-  );
+    const riderUserSnap = await getDoc(doc(db, "users", riderId));
 
-  const activeTripSnap = await getDocs(activeTripQuery);
+  if (riderUserSnap.exists()) {
+    const riderUserData = riderUserSnap.data();
 
-  if (!activeTripSnap.empty) {
-    if (riderStatus) {
-      riderStatus.textContent = "لديك بالفعل رحلة أو طلب نشط. لا يمكنك إنشاء طلب جديد قبل إنهاء أو إلغاء الحالي.";
+    if (riderUserData.activeTripId) {
+      if (riderStatus) {
+        riderStatus.textContent = "لديك بالفعل رحلة أو طلب نشط. لا يمكنك إنشاء طلب جديد قبل إنهاء أو إلغاء الحالي.";
+      }
+      return;
     }
-    return;
   }
   
   const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
@@ -479,7 +478,7 @@ const pickupLng = pickupLatLng?.lng ?? null;
 const dropoffLat = dropoffLatLng?.lat ?? null;
 const dropoffLng = dropoffLatLng?.lng ?? null;
   
-  await addDoc(collection(db, "trips"), {
+  const newTripRef = await addDoc(collection(db, "trips"), {
   riderId,
   driverId: null,
   pickup: pickupDisplay,
@@ -508,6 +507,10 @@ kmEstimated,
     priceBreakdown: pricing
   });
 
+  await updateDoc(doc(db, "users", riderId), {
+    activeTripId: newTripRef.id
+  });
+  
   if (riderStatus) riderStatus.textContent = "تم إرسال الطلب ✅ انتظر قبول السائق.";
 }
 
@@ -722,10 +725,10 @@ return;
 });
 }
 
+
 async function acceptTrip(driverId, tripId) {
   const tripRef = doc(db, "trips", tripId);
 
-  // هات الرحلة أولًا عشان نعرف riderId
   const tripSnap = await getDoc(tripRef);
   if (!tripSnap.exists()) {
     throw new Error("Trip not found");
@@ -734,7 +737,6 @@ async function acceptTrip(driverId, tripId) {
   const tripData = tripSnap.data();
   const riderId = tripData.riderId || null;
 
-  // pending -> accepted + driverId
   await updateDoc(tripRef, {
     status: "accepted",
     driverId,
@@ -745,18 +747,17 @@ async function acceptTrip(driverId, tripId) {
     completedAt: null
   });
 
-  // فعّل activeTripId للسائق
   await updateDoc(doc(db, "users", driverId), {
     activeTripId: tripId
   });
 
-  // وتأكد أيضًا أن الراكب مربوط بنفس الرحلة
   if (riderId) {
     await updateDoc(doc(db, "users", riderId), {
       activeTripId: tripId
     });
   }
 }
+
 
 async function clearActiveTripForTrip(tripId) {
   if (!tripId) return;
@@ -780,6 +781,7 @@ async function clearActiveTripForTrip(tripId) {
     });
   }
 }
+
 
 function escapeHtml(str) {
   return String(str || "")
@@ -2655,7 +2657,6 @@ function watchMyLatestTrip(riderId) {
     const priceTxt = t.price ? `السعر: ${t.price} جنيه` : "السعر غير محدد";
 
     let driverTxt = "";
-
     if (t.driverId) {
       try {
         const driverRef = doc(db, "users", t.driverId);
@@ -2877,7 +2878,6 @@ function watchMyLatestTrip(riderId) {
         }
       }
 
-      // fallback: آخر رحلة فقط، حتى نظهر completed + rating عند عدم وجود activeTripId
       const latestTripQuery = query(
         collection(db, "trips"),
         where("riderId", "==", riderId),
@@ -2966,9 +2966,9 @@ function watchDriverCurrentTrip(driverId) {
     }
 
     const tripRef = doc(db, "trips", activeTripId);
-    const tripSnap = await getDoc(tripRef);
+    const activeTripSnap = await getDoc(tripRef);
 
-    if (!tripSnap.exists()) {
+    if (!activeTripSnap.exists()) {
       if (info) info.textContent = "لا توجد رحلة حالية.";
       approveBtn?.classList.add("hidden");
       completeBtn?.classList.add("hidden");
@@ -2977,7 +2977,6 @@ function watchDriverCurrentTrip(driverId) {
       navBtn?.classList.add("hidden");
       stopDriverLiveLocationSharingRTDB();
 
-      // تنظيف لو activeTripId كان يشير لرحلة محذوفة/غير موجودة
       await updateDoc(doc(db, "users", driverId), {
         activeTripId: null
       });
@@ -2985,8 +2984,8 @@ function watchDriverCurrentTrip(driverId) {
       return;
     }
 
-    const tripId = tripSnap.id;
-    const t = tripSnap.data();
+    const tripId = activeTripSnap.id;
+    const t = activeTripSnap.data();
 
     const status = t.status || "accepted";
     const shouldShareDriverLocationRTDB = ["accepted", "cancel_requested", "waiting_return"].includes(status);
@@ -3006,8 +3005,7 @@ function watchDriverCurrentTrip(driverId) {
           const name = r.name ? escapeHtml(r.name) : "راكب";
           const phone = r.phone ? normalizePhone(r.phone) : "";
           const waPhone = r.phone ? phoneForWhatsApp(r.phone) : "";
-          const riderRatingAvg = Number(r.ratingAvg || 0).toFixed(1);
-          const riderRatingCount = Number(r.ratingCount || 0);
+          const riderRating = await getUserAverageRating(t.riderId);
 
           const phoneHtml = phone
             ? `
@@ -3041,8 +3039,8 @@ function watchDriverCurrentTrip(driverId) {
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
                     <span>⭐</span>
-                    <span>${riderRatingAvg} / 5</span>
-                    <span class="text-slate-400">(${riderRatingCount})</span>
+                    <span>${riderRating.avg || 0} / 5</span>
+                    <span class="text-slate-400">(${riderRating.count})</span>
                   </span>
 
                   <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 ring-1 ring-indigo-500/20">
@@ -3102,7 +3100,7 @@ function watchDriverCurrentTrip(driverId) {
       }
     } else {
       stopDriverLiveLocationSharingRTDB();
-      (tripId, driverId);
+      clearDriverLiveLocationRTDB(tripId, driverId);
     }
 
     navBtn?.classList.add("hidden");
@@ -3111,27 +3109,22 @@ function watchDriverCurrentTrip(driverId) {
       navBtn?.setAttribute("data-trip", tripId);
     }
 
-    // أخفِ الكل افتراضيًا
     approveBtn?.classList.add("hidden");
     completeBtn?.classList.add("hidden");
     startBtn?.classList.add("hidden");
 
-    // لو الراكب طلب إلغاء
     if (status === "cancel_requested") {
       approveBtn?.classList.remove("hidden");
     }
 
-    // لو الرحلة مقبولة (ولسه شغالة)
     if (status === "accepted") {
       completeBtn?.classList.remove("hidden");
     }
 
-    // خزّن tripId في الأزرار
     approveBtn?.setAttribute("data-trip", tripId);
     completeBtn?.setAttribute("data-trip", tripId);
     startBtn?.setAttribute("data-trip", tripId);
 
-    // Rating UI for driver after completed
     driverRatingBox?.classList.add("hidden");
     if (driverRatingStatus) driverRatingStatus.textContent = "";
     submitDriverRatingBtn?.setAttribute("data-trip", tripId);
@@ -3158,6 +3151,7 @@ function watchDriverCurrentTrip(driverId) {
     showAlert("مشكلة في متابعة رحلة السائق الحالية (Realtime).", "error");
   });
 }
+
 
 // bind rider button
 document.getElementById("createTripBtn")?.addEventListener("click", async () => {
@@ -3188,31 +3182,30 @@ document.getElementById("cancelTripBtn")?.addEventListener("click", async () => 
   if (!tripId) return;
 
   try {
-    await updateDoc(doc(db, "trips", tripId), { status: "cancelled" });
+    await updateDoc(doc(db, "trips", tripId), {
+      status: "cancelled",
+      cancelledAt: serverTimestamp(),
+      cancelledBy: user.uid
+    });
+
     await clearActiveTripForTrip(tripId);
-    const tripSnap = await getDoc(doc(db, "trips", tripId));
-if (tripSnap.exists()) {
-  const tripData = tripSnap.data();
 
-  if (tripData.riderId) {
-    await updateDoc(doc(db, "users", tripData.riderId), {
-      activeTripId: null
-    });
-  }
+    const cancelTripSnap = await getDoc(doc(db, "trips", tripId));
+    if (cancelTripSnap.exists()) {
+      const cancelTripData = cancelTripSnap.data();
 
-  if (tripData.driverId) {
-    await updateDoc(doc(db, "users", tripData.driverId), {
-      activeTripId: null
-    });
-  }
-}
+      if (cancelTripData.driverId) {
+        await clearDriverLiveLocationRTDB(tripId, cancelTripData.driverId);
+      }
+    }
 
-    showAlert("تم إلغاء الطلب ✅", "success");
+    showAlert("تم إلغاء الرحلة ✅", "success");
   } catch (e) {
     console.error(e);
-    showAlert("فشل إلغاء الطلب.", "error");
+    showAlert("فشل إلغاء الرحلة.", "error");
   }
 });
+
 
 document.getElementById("requestCancelBtn")?.addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -3253,38 +3246,22 @@ document.getElementById("approveCancelBtn")?.addEventListener("click", async () 
 
     await clearActiveTripForTrip(tripId);
 
-const tripSnap = await getDoc(doc(db, "trips", tripId));
-if (tripSnap.exists()) {
-  const tripData = tripSnap.data();
-  if (tripData.driverId) {
-    await clearDriverLiveLocationRTDB(tripId, tripData.driverId);
-  }
-}
-    
-    await clearActiveTripForTrip(tripId);
-    const tripSnap = await getDoc(doc(db, "trips", tripId));
-if (tripSnap.exists()) {
-  const tripData = tripSnap.data();
+    const cancelTripSnap = await getDoc(doc(db, "trips", tripId));
+    if (cancelTripSnap.exists()) {
+      const cancelTripData = cancelTripSnap.data();
 
-  if (tripData.riderId) {
-    await updateDoc(doc(db, "users", tripData.riderId), {
-      activeTripId: null
-    });
-  }
+      if (cancelTripData.driverId) {
+        await clearDriverLiveLocationRTDB(tripId, cancelTripData.driverId);
+      }
+    }
 
-  if (tripData.driverId) {
-    await updateDoc(doc(db, "users", tripData.driverId), {
-      activeTripId: null
-    });
-  }
-}
-
-    showAlert("تم إلغاء الرحلة ✅", "success");
+    showAlert("تمت الموافقة على الإلغاء ✅", "success");
   } catch (e) {
     console.error(e);
     showAlert("فشل إلغاء الرحلة.", "error");
   }
 });
+
 
 // Driver: complete trip
 document.getElementById("completeTripBtn")?.addEventListener("click", async () => {
@@ -3297,14 +3274,14 @@ document.getElementById("completeTripBtn")?.addEventListener("click", async () =
 
   try {
     const tripRef = doc(db, "trips", tripId);
-    const tripSnap = await getDoc(tripRef);
+    const tripDocSnap = await getDoc(tripRef);
 
-    if (!tripSnap.exists()) {
+    if (!tripDocSnap.exists()) {
       showAlert("تعذر العثور على الرحلة.", "error");
       return;
     }
 
-    const tripData = tripSnap.data();
+    const tripData = tripDocSnap.data();
 
     await updateDoc(tripRef, {
       status: "completed",
