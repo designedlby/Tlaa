@@ -758,6 +758,28 @@ async function acceptTrip(driverId, tripId) {
   }
 }
 
+async function clearActiveTripForTrip(tripId) {
+  if (!tripId) return;
+
+  const tripRef = doc(db, "trips", tripId);
+  const tripSnap = await getDoc(tripRef);
+
+  if (!tripSnap.exists()) return;
+
+  const tripData = tripSnap.data();
+
+  if (tripData.riderId) {
+    await updateDoc(doc(db, "users", tripData.riderId), {
+      activeTripId: null
+    });
+  }
+
+  if (tripData.driverId) {
+    await updateDoc(doc(db, "users", tripData.driverId), {
+      activeTripId: null
+    });
+  }
+}
 
 function escapeHtml(str) {
   return String(str || "")
@@ -2602,248 +2624,279 @@ function watchMyLatestTrip(riderId) {
   const createTripBtn = document.getElementById("createTripBtn");
   const riderRatingBox = document.getElementById("riderRatingBox");
   const navBtn = document.getElementById("openRiderNavigationBtn");
-const riderRatingStatus = document.getElementById("riderRatingStatus");
-const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
-  
+  const riderRatingStatus = document.getElementById("riderRatingStatus");
+  const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
+
   if (unsubscribeMyTrip) unsubscribeMyTrip();
 
-  const q = query(
-  collection(db, "trips"),
-  where("riderId", "==", riderId),
-  orderBy("createdAt", "desc"),
-  limit(1)
-);
+  const resetEmptyState = () => {
+    if (info) info.textContent = "لا يوجد طلب حاليًا.";
+    cancelBtn?.classList.add("hidden");
+    requestBtn?.classList.add("hidden");
+    riderRatingBox?.classList.add("hidden");
+    navBtn?.classList.add("hidden");
+    clearRiderLiveTrackingUI();
 
-  unsubscribeMyTrip = onSnapshot(q, async (snap) => {
-    if (snap.empty) {
-  if (info) info.textContent = "لا يوجد طلب حاليًا.";
-  cancelBtn?.classList.add("hidden");
-  requestBtn?.classList.add("hidden");
-  riderRatingBox?.classList.add("hidden");
+    if (createTripBtn) {
+      createTripBtn.disabled = false;
+      createTripBtn.classList.remove("opacity-50", "cursor-not-allowed");
+      createTripBtn.textContent = "إرسال الطلب";
+    }
+  };
 
-  if (createTripBtn) {
-    createTripBtn.disabled = false;
-    createTripBtn.classList.remove("opacity-50", "cursor-not-allowed");
-    createTripBtn.textContent = "إرسال الطلب";
-  }
-navBtn?.classList.add("hidden");
-            clearRiderLiveTrackingUI();
-
-  return;
-}
-
-    const docSnap = snap.docs[0];
+  const renderTripDoc = async (docSnap) => {
     const t = docSnap.data();
+    const tripId = docSnap.id;
 
     const status = t.status || "pending";
     const shouldShowLiveTrackingRTDB = ["accepted", "cancel_requested", "waiting_return"].includes(status);
     const canNavigate = ["accepted", "cancel_requested", "waiting_return"].includes(status);
     const isActiveTrip = ["pending", "accepted", "cancel_requested", "waiting_return"].includes(status);
-    const priceTxt = t.price ? ` | السعر: ${t.price} جنيه` : "";
+    const priceTxt = t.price ? `السعر: ${t.price} جنيه` : "السعر غير محدد";
 
-let driverTxt = "";
-if (t.driverId) {
-  try {
-    const driverRef = doc(db, "users", t.driverId);
-    const driverSnap = await getDoc(driverRef);
+    let driverTxt = "";
 
-    if (driverSnap.exists()) {
-      const d = driverSnap.data();
+    if (t.driverId) {
+      try {
+        const driverRef = doc(db, "users", t.driverId);
+        const driverSnap = await getDoc(driverRef);
 
-      const name = d.name ? escapeHtml(d.name) : "سائق";
-      const phone = d.phone ? normalizePhone(d.phone) : "";
-      const waPhone = d.phone ? phoneForWhatsApp(d.phone) : "";
+        if (driverSnap.exists()) {
+          const d = driverSnap.data();
 
-      const carPlate = d.carPlate ? escapeHtml(d.carPlate) : "";
-      const carModel = d.carModel ? escapeHtml(d.carModel) : "";
-      const carColor = d.carColor ? escapeHtml(d.carColor) : "";
-      const driverRating = await getUserAverageRating(t.driverId);
-      
-      const phoneHtml = phone
-        ? `
-          <a class="inline-flex items-center gap-2 rounded-2xl bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
-             href="tel:${phone}">
-            <span>📞</span>
-            <span>${phone}</span>
-          </a>
-        `
-        : "";
+          const name = d.name ? escapeHtml(d.name) : "سائق";
+          const phone = d.phone ? normalizePhone(d.phone) : "";
+          const waPhone = d.phone ? phoneForWhatsApp(d.phone) : "";
 
-      const waHtml = waPhone
-        ? `
-          <a class="inline-flex items-center gap-2 rounded-2xl bg-green-500/15 px-3 py-2 text-xs font-semibold text-green-300 ring-1 ring-green-500/20 hover:bg-green-500/20"
-             target="_blank"
-             href="https://wa.me/${waPhone}">
-            <span>💬</span>
-            <span>واتساب</span>
-          </a>
-        `
-        : "";
+          const carPlate = d.carPlate ? escapeHtml(d.carPlate) : "";
+          const carModel = d.carModel ? escapeHtml(d.carModel) : "";
+          const carColor = d.carColor ? escapeHtml(d.carColor) : "";
+          const driverRating = await getUserAverageRating(t.driverId);
 
-      const carModelHtml = carModel
-        ? `<span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-xs text-slate-200 ring-1 ring-white/10">🚐 ${carModel}</span>`
-        : "";
+          const phoneHtml = phone
+            ? `
+              <a class="inline-flex items-center gap-2 rounded-2xl bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-300 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20"
+                 href="tel:${phone}">
+                <span>📞</span>
+                <span>${phone}</span>
+              </a>
+            `
+            : "";
 
-      const carColorHtml = carColor
-        ? `<span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-xs text-slate-200 ring-1 ring-white/10">🎨 ${carColor}</span>`
-        : "";
+          const waHtml = waPhone
+            ? `
+              <a class="inline-flex items-center gap-2 rounded-2xl bg-green-500/15 px-3 py-2 text-xs font-semibold text-green-300 ring-1 ring-green-500/20 hover:bg-green-500/20"
+                 target="_blank"
+                 href="https://wa.me/${waPhone}">
+                <span>💬</span>
+                <span>واتساب</span>
+              </a>
+            `
+            : "";
 
-      const plateHtml = carPlate
-        ? `
-          <div class="inline-flex min-w-[120px] items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-extrabold tracking-wide text-slate-900 shadow-sm">
-            ${carPlate}
-          </div>
-        `
-        : "";
+          const carModelHtml = carModel
+            ? `<span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-xs text-slate-200 ring-1 ring-white/10">🚐 ${carModel}</span>`
+            : "";
 
-      driverTxt = `
-  <div class="mt-3 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="min-w-0">
-        <div class="text-sm font-semibold text-white">بيانات السائق</div>
-        <div class="mt-1 text-xs text-slate-300 break-all">${name}</div>
-      </div>
+          const carColorHtml = carColor
+            ? `<span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-xs text-slate-200 ring-1 ring-white/10">🎨 ${carColor}</span>`
+            : "";
 
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
-          <span>⭐</span>
-          <span>${driverRating.avg || 0} / 5</span>
-          <span class="text-slate-400">(${driverRating.count})</span>
-        </span>
+          const plateHtml = carPlate
+            ? `
+              <div class="inline-flex min-w-[120px] items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-extrabold tracking-wide text-slate-900 shadow-sm">
+                ${carPlate}
+              </div>
+            `
+            : "";
 
-        <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 ring-1 ring-indigo-500/20">
-          <span class="h-2 w-2 rounded-full bg-current"></span>
-          <span>تم قبول الرحلة</span>
-        </span>
-      </div>
-    </div>
-
-          <div class="mt-3 flex flex-wrap gap-2">
-            ${phoneHtml}
-            ${waHtml}
-          </div>
-
-          <div class="mt-4 flex flex-wrap items-center gap-2">
-            ${carModelHtml}
-            ${carColorHtml}
-          </div>
-
-          ${
-            plateHtml
-              ? `
-                <div class="mt-4">
-                  <div class="mb-2 text-[11px] font-semibold text-slate-400">لوحة السيارة</div>
-                  ${plateHtml}
+          driverTxt = `
+            <div class="mt-3 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-sm font-semibold text-white">بيانات السائق</div>
+                  <div class="mt-1 text-xs text-slate-300 break-all">${name}</div>
                 </div>
-              `
-              : ""
-          }
+
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">
+                    <span>⭐</span>
+                    <span>${driverRating.avg || 0} / 5</span>
+                    <span class="text-slate-400">(${driverRating.count})</span>
+                  </span>
+
+                  <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 ring-1 ring-indigo-500/20">
+                    <span class="h-2 w-2 rounded-full bg-current"></span>
+                    <span>تم قبول الرحلة</span>
+                  </span>
+                </div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap gap-2">
+                ${phoneHtml}
+                ${waHtml}
+              </div>
+
+              <div class="mt-4 flex flex-wrap items-center gap-2">
+                ${carModelHtml}
+                ${carColorHtml}
+              </div>
+
+              ${
+                plateHtml
+                  ? `
+                    <div class="mt-4">
+                      <div class="mb-2 text-[11px] font-semibold text-slate-400">لوحة السيارة</div>
+                      ${plateHtml}
+                    </div>
+                  `
+                  : ""
+              }
+            </div>
+          `;
+        } else {
+          driverTxt = `
+            <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
+              تعذر تحميل بيانات السائق.
+            </div>
+          `;
+        }
+      } catch (e) {
+        console.error(e);
+        driverTxt = `
+          <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
+            تعذر تحميل بيانات السائق.
+          </div>
+        `;
+      }
+    }
+
+    if (info) {
+      info.innerHTML = `
+        <div class="flex flex-wrap items-center gap-2">
+          ${statusBadge(status)}
         </div>
-      `;
-    } else {
-      driverTxt = `
-        <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
-          تعذر تحميل بيانات السائق.
+
+        <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-xs text-slate-400">خط الرحلة</div>
+          <div class="mt-1 text-sm font-semibold text-white break-all">
+            ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
+          </div>
+          <div class="mt-2 text-xs text-slate-300">
+            ${priceTxt}
+          </div>
         </div>
+
+        ${driverTxt}
       `;
     }
-  } catch (e) {
-    console.error(e);
-    driverTxt = `
-      <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3 text-xs text-slate-300 break-all">
-        تعذر تحميل بيانات السائق.
-      </div>
-    `;
-  }
-}
 
-if (info) {
-  info.innerHTML = `
-    <div class="flex flex-wrap items-center gap-2">
-      ${statusBadge(status)}
-    </div>
-
-    <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
-      <div class="text-xs text-slate-400">خط الرحلة</div>
-      <div class="mt-1 text-sm font-semibold text-white break-all">
-        ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
-      </div>
-      <div class="mt-2 text-xs text-slate-300">
-        ${priceTxt}
-      </div>
-    </div>
-
-    ${driverTxt}
-  `;
-}
-
-       if (shouldShowLiveTrackingRTDB && t.driverId) {
-      listenToDriverLiveLocationRTDB({ id: docSnap.id, ...t });
+    if (shouldShowLiveTrackingRTDB && t.driverId) {
+      listenToDriverLiveLocationRTDB({ id: tripId, ...t });
     } else {
       clearRiderLiveTrackingUI();
     }
-    
-navBtn?.classList.add("hidden");
 
-if (canNavigate) {
-  navBtn?.classList.remove("hidden");
-  navBtn?.setAttribute("data-trip", docSnap.id);
-}
-    
-if (createTripBtn) {
-  if (isActiveTrip) {
-    createTripBtn.disabled = true;
-    createTripBtn.classList.add("opacity-50", "cursor-not-allowed");
-    createTripBtn.textContent = "لديك طلب نشط";
-  } else {
-    createTripBtn.disabled = false;
-    createTripBtn.classList.remove("opacity-50", "cursor-not-allowed");
-    createTripBtn.textContent = "إرسال الطلب";
-  }
-}
-    
-    // pending: الراكب يقدر يلغي فورًا (قبل ما السائق يقبل)
-if (status === "pending") {
-  cancelBtn?.classList.remove("hidden");
-  requestBtn?.classList.add("hidden");
-}
-// accepted: الراكب مايلغيش فورًا، يطلب إلغاء والسائق يوافق
-else if (status === "accepted") {
-  cancelBtn?.classList.add("hidden");
-  requestBtn?.classList.remove("hidden");
-}
-// أي حالة تانية: اخفي الاتنين
-else {
-  cancelBtn?.classList.add("hidden");
-  requestBtn?.classList.add("hidden");
-}
+    navBtn?.classList.add("hidden");
+    if (canNavigate) {
+      navBtn?.classList.remove("hidden");
+      navBtn?.setAttribute("data-trip", tripId);
+    }
 
-// خزّن tripId في الأزرار
-cancelBtn?.setAttribute("data-trip", docSnap.id);
-requestBtn?.setAttribute("data-trip", docSnap.id);
-
-// Rating UI for rider after completed
-riderRatingBox?.classList.add("hidden");
-if (riderRatingStatus) riderRatingStatus.textContent = "";
-submitRiderRatingBtn?.setAttribute("data-trip", docSnap.id);
-
-if (status === "completed") {
-  riderRatingBox?.classList.remove("hidden");
-
-  try {
-    const ratingRef = doc(db, "trip_ratings", `${docSnap.id}_rider`);
-    const ratingSnap = await getDoc(ratingRef);
-
-    if (ratingSnap.exists()) {
-      const ratingData = ratingSnap.data();
-      if (riderRatingStatus) {
-        riderRatingStatus.textContent = `تم إرسال تقييمك للسائق ✅ (${ratingData.score || "-"}/5)`;
+    if (createTripBtn) {
+      if (isActiveTrip) {
+        createTripBtn.disabled = true;
+        createTripBtn.classList.add("opacity-50", "cursor-not-allowed");
+        createTripBtn.textContent = "لديك طلب نشط";
+      } else {
+        createTripBtn.disabled = false;
+        createTripBtn.classList.remove("opacity-50", "cursor-not-allowed");
+        createTripBtn.textContent = "إرسال الطلب";
       }
     }
-  } catch (e) {
-    console.error(e);
-  }
-}
+
+    if (status === "pending") {
+      cancelBtn?.classList.remove("hidden");
+      requestBtn?.classList.add("hidden");
+    } else if (status === "accepted") {
+      cancelBtn?.classList.add("hidden");
+      requestBtn?.classList.remove("hidden");
+    } else {
+      cancelBtn?.classList.add("hidden");
+      requestBtn?.classList.add("hidden");
+    }
+
+    cancelBtn?.setAttribute("data-trip", tripId);
+    requestBtn?.setAttribute("data-trip", tripId);
+
+    riderRatingBox?.classList.add("hidden");
+    if (riderRatingStatus) riderRatingStatus.textContent = "";
+    submitRiderRatingBtn?.setAttribute("data-trip", tripId);
+
+    if (status === "completed") {
+      riderRatingBox?.classList.remove("hidden");
+
+      try {
+        const ratingRef = doc(db, "trip_ratings", `${tripId}_rider`);
+        const ratingSnap = await getDoc(ratingRef);
+
+        if (ratingSnap.exists()) {
+          const ratingData = ratingSnap.data();
+          if (riderRatingStatus) {
+            riderRatingStatus.textContent = `تم إرسال تقييمك للسائق ✅ (${ratingData.score || "-"}/5)`;
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const userRef = doc(db, "users", riderId);
+
+  unsubscribeMyTrip = onSnapshot(userRef, async (userSnap) => {
+    try {
+      if (!userSnap.exists()) {
+        resetEmptyState();
+        return;
+      }
+
+      const userData = userSnap.data();
+      const activeTripId = userData.activeTripId || null;
+
+      if (activeTripId) {
+        const activeTripSnap = await getDoc(doc(db, "trips", activeTripId));
+
+        if (activeTripSnap.exists()) {
+          await renderTripDoc(activeTripSnap);
+          return;
+        } else {
+          await updateDoc(doc(db, "users", riderId), {
+            activeTripId: null
+          });
+        }
+      }
+
+      // fallback: آخر رحلة فقط، حتى نظهر completed + rating عند عدم وجود activeTripId
+      const latestTripQuery = query(
+        collection(db, "trips"),
+        where("riderId", "==", riderId),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+
+      const latestTripSnap = await getDocs(latestTripQuery);
+
+      if (latestTripSnap.empty) {
+        resetEmptyState();
+        return;
+      }
+
+      await renderTripDoc(latestTripSnap.docs[0]);
+    } catch (err) {
+      console.error(err);
+      showAlert("مشكلة في متابعة الرحلة الحالية (Realtime).", "error");
+    }
   }, (err) => {
     console.error(err);
     showAlert("مشكلة في متابعة الرحلة الحالية (Realtime).", "error");
@@ -3049,7 +3102,7 @@ function watchDriverCurrentTrip(driverId) {
       }
     } else {
       stopDriverLiveLocationSharingRTDB();
-      clearDriverLiveLocationRTDB(tripId, driverId);
+      (tripId, driverId);
     }
 
     navBtn?.classList.add("hidden");
@@ -3136,6 +3189,7 @@ document.getElementById("cancelTripBtn")?.addEventListener("click", async () => 
 
   try {
     await updateDoc(doc(db, "trips", tripId), { status: "cancelled" });
+    await clearActiveTripForTrip(tripId);
     const tripSnap = await getDoc(doc(db, "trips", tripId));
 if (tripSnap.exists()) {
   const tripData = tripSnap.data();
@@ -3196,6 +3250,18 @@ document.getElementById("approveCancelBtn")?.addEventListener("click", async () 
       cancelledAt: serverTimestamp(),
       cancelledBy: user.uid
     });
+
+    await clearActiveTripForTrip(tripId);
+
+const tripSnap = await getDoc(doc(db, "trips", tripId));
+if (tripSnap.exists()) {
+  const tripData = tripSnap.data();
+  if (tripData.driverId) {
+    await clearDriverLiveLocationRTDB(tripId, tripData.driverId);
+  }
+}
+    
+    await clearActiveTripForTrip(tripId);
     const tripSnap = await getDoc(doc(db, "trips", tripId));
 if (tripSnap.exists()) {
   const tripData = tripSnap.data();
@@ -3230,11 +3296,28 @@ document.getElementById("completeTripBtn")?.addEventListener("click", async () =
   if (!tripId) return;
 
   try {
-    await updateDoc(doc(db, "trips", tripId), {
+    const tripRef = doc(db, "trips", tripId);
+    const tripSnap = await getDoc(tripRef);
+
+    if (!tripSnap.exists()) {
+      showAlert("تعذر العثور على الرحلة.", "error");
+      return;
+    }
+
+    const tripData = tripSnap.data();
+
+    await updateDoc(tripRef, {
       status: "completed",
       completedAt: serverTimestamp(),
       completedBy: user.uid
     });
+
+    await clearActiveTripForTrip(tripId);
+
+    if (tripData.driverId) {
+      await clearDriverLiveLocationRTDB(tripId, tripData.driverId);
+    }
+
     showAlert("تم إنهاء الرحلة ✅", "success");
   } catch (e) {
     console.error(e);
