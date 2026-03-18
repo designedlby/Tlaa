@@ -2588,7 +2588,7 @@ const submitRiderRatingBtn = document.getElementById("submitRiderRatingBtn");
   const q = query(
   collection(db, "trips"),
   where("riderId", "==", riderId),
-  where("status", "in", ["pending", "accepted", "cancel_requested", "waiting_return"]),
+  orderBy("createdAt", "desc"),
   limit(1)
 );
 
