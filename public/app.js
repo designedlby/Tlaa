@@ -2776,24 +2776,32 @@ function watchMyLatestTrip(riderId) {
     }
 
     if (info) {
-      info.innerHTML = `
-        <div class="flex flex-wrap items-center gap-2">
-          ${statusBadge(status)}
-        </div>
+  info.innerHTML = `
+    <div class="flex flex-wrap items-center gap-2">
+      ${statusBadge(status)}
+    </div>
 
-        <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
-          <div class="text-xs text-slate-400">خط الرحلة</div>
-          <div class="mt-1 text-sm font-semibold text-white break-all">
-            ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
-          </div>
-          <div class="mt-2 text-xs text-slate-300">
-            ${priceTxt}
-          </div>
-        </div>
+    <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+      <div class="text-xs text-slate-400">خط الرحلة</div>
+      <div class="mt-1 text-sm font-semibold text-white break-all">
+        ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
+      </div>
+      <div class="mt-2 text-xs text-slate-300">
+        ${priceTxt}
+      </div>
+    </div>
 
-        ${driverTxt}
-      `;
-    }
+    <div class="mt-3 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black/20">
+      <div class="miniMap" id="rider_trip_map_${tripId}" style="height: 180px;"></div>
+    </div>
+
+    ${driverTxt}
+  `;
+
+  setTimeout(() => {
+    renderMiniMap(`rider_trip_map_${tripId}`, t);
+  }, 50);
+}
 
     if (shouldShowLiveTrackingRTDB && t.driverId) {
       listenToDriverLiveLocationRTDB({ id: tripId, ...t });
