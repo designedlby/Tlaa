@@ -513,6 +513,113 @@ kmEstimated,
   if (riderStatus) riderStatus.textContent = "تم إرسال الطلب ✅ انتظر قبول السائق.";
 }
 
+function getTripTypeLabel(tripType) {
+  if (tripType === "one_way") return "ذهاب فقط";
+  if (tripType === "round_same_day") return "ذهاب وعودة في نفس اليوم";
+  if (tripType === "return_other_day" || tripType === "round_diff_days") return "ذهاب وعودة في يوم مختلف";
+  return "غير محدد";
+}
+
+function getLuggageLabel(luggageType) {
+  if (luggageType === "none") return "لا يوجد";
+  if (luggageType === "bags") return "شنط";
+  if (luggageType === "extra") return "حمولة إضافية";
+  return "غير محدد";
+}
+
+function renderDriverTripDetailsHtml(t) {
+  const tripTypeLabel = getTripTypeLabel(t.tripType);
+  const luggageLabel = getLuggageLabel(t.luggageType);
+  const passengerCount = Number(t.passengerCount || 1);
+  const waitingMinutes = Number(t.waitingMinutes || 0);
+  const returnDate = t.returnDate || "";
+  const tripNotes = (t.tripNotes || "").trim();
+
+  const priceBreakdown = t.priceBreakdown || {};
+  const oneWayFare = Number(priceBreakdown.oneWayFare || 0);
+  const luggageFee = Number(priceBreakdown.luggageFee || 0);
+  const extraPassengerFee = Number(priceBreakdown.extraPassengerFee || 0);
+  const waitingFee = Number(priceBreakdown.waitingFee || 0);
+  const bookingFee = Number(priceBreakdown.bookingFee || 0);
+
+  return `
+    <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+      <div class="text-xs font-semibold text-slate-300 mb-2">تفاصيل الطلب</div>
+
+      <div class="grid gap-2 sm:grid-cols-2 text-xs text-slate-200">
+        <div class="rounded-xl bg-black/20 px-3 py-2">
+          <span class="text-slate-400">نوع الرحلة:</span>
+          <div class="mt-1 font-semibold text-white">${tripTypeLabel}</div>
+        </div>
+
+        <div class="rounded-xl bg-black/20 px-3 py-2">
+          <span class="text-slate-400">عدد الركاب:</span>
+          <div class="mt-1 font-semibold text-white">${passengerCount}</div>
+        </div>
+
+        <div class="rounded-xl bg-black/20 px-3 py-2">
+          <span class="text-slate-400">الشنط / الحمولة:</span>
+          <div class="mt-1 font-semibold text-white">${luggageLabel}</div>
+        </div>
+
+        <div class="rounded-xl bg-black/20 px-3 py-2">
+          <span class="text-slate-400">السعر الإجمالي:</span>
+          <div class="mt-1 font-semibold text-white">${Number(t.price || 0)} جنيه</div>
+        </div>
+
+        ${
+          waitingMinutes > 0
+            ? `
+              <div class="rounded-xl bg-black/20 px-3 py-2">
+                <span class="text-slate-400">مدة الانتظار:</span>
+                <div class="mt-1 font-semibold text-white">${waitingMinutes} دقيقة</div>
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          returnDate
+            ? `
+              <div class="rounded-xl bg-black/20 px-3 py-2">
+                <span class="text-slate-400">تاريخ العودة:</span>
+                <div class="mt-1 font-semibold text-white">${escapeHtml(returnDate)}</div>
+              </div>
+            `
+            : ""
+        }
+      </div>
+
+      <div class="mt-3 rounded-xl bg-black/20 px-3 py-3">
+        <div class="text-[11px] font-semibold text-slate-400 mb-2">تفصيل السعر</div>
+        <div class="grid gap-1 text-xs text-slate-200">
+          ${oneWayFare ? `<div>سعر الذهاب الأساسي: <span class="font-semibold text-white">${oneWayFare} جنيه</span></div>` : ""}
+          ${luggageFee ? `<div>رسوم الشنط / الحمولة: <span class="font-semibold text-white">${luggageFee} جنيه</span></div>` : ""}
+          ${extraPassengerFee ? `<div>رسوم ركاب إضافيين: <span class="font-semibold text-white">${extraPassengerFee} جنيه</span></div>` : ""}
+          ${waitingFee ? `<div>رسوم الانتظار: <span class="font-semibold text-white">${waitingFee} جنيه</span></div>` : ""}
+          ${bookingFee ? `<div>رسوم حجز / تنسيق العودة: <span class="font-semibold text-white">${bookingFee} جنيه</span></div>` : ""}
+          ${
+            (t.tripType === "return_other_day" || t.tripType === "round_diff_days")
+              ? `<div class="text-amber-300">سعر رحلة العودة النهائي يُحسب عند يوم الرجوع.</div>`
+              : ""
+          }
+        </div>
+      </div>
+
+      ${
+        tripNotes
+          ? `
+            <div class="mt-3 rounded-xl bg-black/20 px-3 py-3">
+              <div class="text-[11px] font-semibold text-slate-400 mb-1">ملاحظات الراكب</div>
+              <div class="text-xs text-white break-words">${escapeHtml(tripNotes)}</div>
+            </div>
+          `
+          : ""
+      }
+    </div>
+  `;
+}
+
 async function loadPendingTripsForDriver(driverId) {
   const list = document.getElementById("tripsList");
   if (!list) return;
@@ -621,22 +728,24 @@ nearbyTrips.forEach((t) => {
 
     <div class="min-w-0">
       <div class="text-sm font-semibold break-all">
-  ${escapeHtml(t.pickupAddress || t.pickup)} → ${escapeHtml(t.dropoffAddress || t.dropoff)}
-</div>
+        ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
+      </div>
 
       <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300 break-words">
-  ${statusBadge(t.status || "pending")}
-  <span>السعر: <b>${t.price}</b> جنيه</span>
-  ${t.kmEstimated ? `<span>المسافة التقديرية: <b>${t.kmEstimated}</b> كم</span>` : ""}
-  ${t.kmFromDriver ? `<span>يبعد عنك: <b>${t.kmFromDriver}</b> كم</span>` : ""}
-</div>
+        ${statusBadge(t.status || "pending")}
+        <span>السعر: <b>${t.price}</b> جنيه</span>
+        ${t.kmEstimated ? `<span>المسافة التقديرية: <b>${t.kmEstimated}</b> كم</span>` : ""}
+        ${t.kmFromDriver ? `<span>يبعد عنك: <b>${t.kmFromDriver}</b> كم</span>` : ""}
+      </div>
     </div>
 
     <button data-trip="${id}"
-class="acceptBtn shrink-0 rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
-قبول الرحلة
-</button>
+      class="acceptBtn shrink-0 rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
+      قبول الرحلة
+    </button>
   </div>
+
+  ${renderDriverTripDetailsHtml(t)}
 
   <div class="mt-3 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black/20">
     <div class="miniMap" id="map_${id}" style="height: 180px;"></div>
@@ -3087,29 +3196,31 @@ function watchDriverCurrentTrip(driverId) {
       }
     }
 
-    if (info) {
-      info.innerHTML = `
-        <div class="flex flex-wrap items-center gap-2">
-          ${statusBadge(status)}
-        </div>
+   if (info) {
+  info.innerHTML = `
+    <div class="flex flex-wrap items-center gap-2">
+      ${statusBadge(status)}
+    </div>
 
-        <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
-          <div class="text-xs text-slate-400">خط الرحلة</div>
-          <div class="mt-1 text-sm font-semibold text-white break-all">
-            ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
-          </div>
-          <div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-300">
-            <span>المسافة: ${kmTxt}</span>
-            <span>السعر: ${priceTxt}</span>
-          </div>
-        </div>
+    <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+      <div class="text-xs text-slate-400">خط الرحلة</div>
+      <div class="mt-1 text-sm font-semibold text-white break-all">
+        ${escapeHtml(t.pickup)} → ${escapeHtml(t.dropoff)}
+      </div>
+      <div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-300">
+        <span>المسافة: ${kmTxt}</span>
+        <span>السعر: ${priceTxt}</span>
+      </div>
+    </div>
 
-        <div class="mt-3 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black/20">
-          <div class="miniMap" id="driver_current_trip_map" style="height: 180px;"></div>
-        </div>
+    ${renderDriverTripDetailsHtml(t)}
 
-        ${riderTxt}
-      `;
+    <div class="mt-3 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black/20">
+      <div class="miniMap" id="driver_current_trip_map" style="height: 180px;"></div>
+    </div>
+
+    ${riderTxt}
+  `;
 
       setTimeout(() => {
         renderMiniMap("driver_current_trip_map", t);
