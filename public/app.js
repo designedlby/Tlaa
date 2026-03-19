@@ -2989,9 +2989,9 @@ function watchDriverCurrentTrip(driverId) {
     stopDriverLiveLocationSharingRTDB();
   };
 
-  const renderDriverTripDoc = async (activeTripSnap) => {
-    const tripId = activeTripSnap.id;
-    const t = activeTripSnap.data();
+  const renderDriverTripDoc = async (tripSnap) => {
+    const tripId = tripSnap.id;
+    const t = tripSnap.data();
 
     const status = t.status || "accepted";
     const shouldShareDriverLocationRTDB = ["accepted", "cancel_requested", "waiting_return"].includes(status);
@@ -3051,7 +3051,7 @@ function watchDriverCurrentTrip(driverId) {
 
                   <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 ring-1 ring-indigo-500/20">
                     <span class="h-2 w-2 rounded-full bg-current"></span>
-                    <span>رحلتك الحالية</span>
+                    <span>${status === "completed" ? "رحلة مكتملة" : "رحلتك الحالية"}</span>
                   </span>
                 </div>
               </div>
@@ -3096,8 +3096,16 @@ function watchDriverCurrentTrip(driverId) {
           </div>
         </div>
 
+        <div class="mt-3 rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black/20">
+          <div class="miniMap" id="driver_current_trip_map" style="height: 180px;"></div>
+        </div>
+
         ${riderTxt}
       `;
+
+      setTimeout(() => {
+        renderMiniMap("driver_current_trip_map", t);
+      }, 50);
     }
 
     if (shouldShareDriverLocationRTDB) {
@@ -3106,7 +3114,9 @@ function watchDriverCurrentTrip(driverId) {
       }
     } else {
       stopDriverLiveLocationSharingRTDB();
-      clearDriverLiveLocationRTDB(tripId, driverId);
+      if (t.driverId) {
+        clearDriverLiveLocationRTDB(tripId, t.driverId);
+      }
     }
 
     navBtn?.classList.add("hidden");
@@ -3175,7 +3185,23 @@ function watchDriverCurrentTrip(driverId) {
           unsubscribeDriverTripDoc();
           unsubscribeDriverTripDoc = null;
         }
-        resetDriverState();
+
+        // fallback: آخر رحلة للسائق لإظهار completed + rating
+        const latestDriverTripQuery = query(
+          collection(db, "trips"),
+          where("driverId", "==", driverId),
+          orderBy("acceptedAt", "desc"),
+          limit(1)
+        );
+
+        const latestDriverTripSnap = await getDocs(latestDriverTripQuery);
+
+        if (latestDriverTripSnap.empty) {
+          resetDriverState();
+          return;
+        }
+
+        await renderDriverTripDoc(latestDriverTripSnap.docs[0]);
         return;
       }
 
@@ -3222,7 +3248,6 @@ function watchDriverCurrentTrip(driverId) {
     showAlert("مشكلة في متابعة رحلة السائق الحالية (Realtime).", "error");
   });
 }
-
 // bind rider button
 document.getElementById("createTripBtn")?.addEventListener("click", async () => {
   const user = auth.currentUser;
