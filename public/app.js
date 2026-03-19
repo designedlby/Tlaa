@@ -2864,7 +2864,21 @@ function watchMyLatestTrip(riderId) {
       const activeTripId = userData.activeTripId || null;
 
       if (activeTripId) {
-        const activeTripSnap = await getDoc(doc(db, "trips", activeTripId));
+        let activeTripSnap = null;
+
+try {
+  activeTripSnap = await getDoc(doc(db, "trips", activeTripId));
+} catch (e) {
+  console.warn("Trip read blocked by rules:", e);
+
+  // نظف الحالة لو القراءة فشلت
+  await updateDoc(doc(db, "users", riderId), {
+    activeTripId: null
+  });
+
+  return;
+}
+
 
         if (activeTripSnap.exists()) {
           await renderTripDoc(activeTripSnap);
@@ -2965,7 +2979,20 @@ function watchDriverCurrentTrip(driverId) {
     }
 
     const tripRef = doc(db, "trips", activeTripId);
-    const activeTripSnap = await getDoc(tripRef);
+    let activeTripSnap = null;
+
+try {
+  activeTripSnap = await getDoc(tripRef);
+} catch (e) {
+  console.warn("Driver trip read blocked:", e);
+
+  await updateDoc(doc(db, "users", driverId), {
+    activeTripId: null
+  });
+
+  return;
+}
+
 
     if (!activeTripSnap.exists()) {
       if (info) info.textContent = "لا توجد رحلة حالية.";
