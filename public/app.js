@@ -21,8 +21,7 @@ import {
   limit,
   getDocs,
   updateDoc,
-  onSnapshot,
-  collection,  
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 import {
