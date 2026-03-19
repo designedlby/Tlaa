@@ -2611,7 +2611,6 @@ document.getElementById("useMyLocationBtn")?.addEventListener("click", async () 
 });
 
 // ========== Rider Realtime: watch latest trip ==========
-let unsubscribeMyTrip = null;
 let currentDriverVerification = { ok: true, issues: [] };
 let selectedRiderRating = 0;
 let selectedDriverRating = 0;
