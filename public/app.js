@@ -3573,7 +3573,6 @@ function watchMyLatestTrip(riderId) {
 // ========== Driver Realtime: watch current trip ==========
 let unsubscribeDriverTrip = null;
 let unsubscribeDriverTripDoc = null;
-let unsubscribeMyComplaints = null;
 let driverLocationWatcherId = null;
 let riderLiveMap = null;
 let driverLiveSharingTripId = null;
