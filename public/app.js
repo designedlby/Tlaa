@@ -22,6 +22,7 @@ import {
   getDocs,
   updateDoc,
   onSnapshot,
+  collection,  
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 import {
@@ -207,6 +208,515 @@ logoutBtn?.addEventListener("click", async () => {
   setTab("login");
 });
 
+function getComplaintStatusBadge(status) {
+  if (status === "new") {
+    return `<span class="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20"><span class="h-2 w-2 rounded-full bg-current"></span><span>جديدة</span></span>`;
+  }
+  if (status === "under_review") {
+    return `<span class="inline-flex items-center gap-2 rounded-full bg-sky-500/15 px-2.5 py-1 text-[11px] font-semibold text-sky-300 ring-1 ring-sky-500/20"><span class="h-2 w-2 rounded-full bg-current"></span><span>جاري المراجعة</span></span>`;
+  }
+  if (status === "resolved") {
+    return `<span class="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20"><span class="h-2 w-2 rounded-full bg-current"></span><span>تم الحل</span></span>`;
+  }
+  if (status === "unresolved") {
+    return `<span class="inline-flex items-center gap-2 rounded-full bg-rose-500/15 px-2.5 py-1 text-[11px] font-semibold text-rose-300 ring-1 ring-rose-500/20"><span class="h-2 w-2 rounded-full bg-current"></span><span>لم يتم الحل</span></span>`;
+  }
+  return `<span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-300 ring-1 ring-white/10"><span>غير محدد</span></span>`;
+}
+
+function getComplaintTypeLabel(type) {
+  if (type === "trip_issue") return "مشكلة في رحلة";
+  if (type === "app_bug") return "مشكلة في التطبيق / الويب آب";
+  if (type === "driver_report") return "شكوى على سائق";
+  if (type === "rider_report") return "شكوى على راكب";
+  if (type === "payment_issue") return "مشكلة في الدفع / السعر";
+  if (type === "account_issue") return "مشكلة في الحساب أو التوثيق";
+  return "نوع غير محدد";
+}
+
+function parseComplaintAttachmentUrls(text = "") {
+  return String(text || "")
+    .split("\n")
+    .map(x => x.trim())
+    .filter(Boolean);
+}
+
+function shouldComplaintUseTrip(type) {
+  return ["trip_issue", "driver_report", "rider_report", "payment_issue"].includes(type);
+}
+
+function resetComplaintForm() {
+  const typeEl = document.getElementById("complaintType");
+  const titleEl = document.getElementById("complaintTitle");
+  const tripEl = document.getElementById("complaintTripId");
+  const issueSummaryEl = document.getElementById("complaintIssueSummary");
+  const exactProblemEl = document.getElementById("complaintExactProblem");
+  const expectedSolutionEl = document.getElementById("complaintExpectedSolution");
+  const extraContextEl = document.getElementById("complaintExtraContext");
+  const attachmentUrlsEl = document.getElementById("complaintAttachmentUrls");
+  const statusEl = document.getElementById("complaintFormStatus");
+  const counterEl = document.getElementById("complaintProblemCounter");
+
+  if (typeEl) typeEl.value = "";
+  if (titleEl) titleEl.value = "";
+  if (tripEl) tripEl.value = "";
+  if (issueSummaryEl) issueSummaryEl.value = "";
+  if (exactProblemEl) exactProblemEl.value = "";
+  if (expectedSolutionEl) expectedSolutionEl.value = "";
+  if (extraContextEl) extraContextEl.value = "";
+  if (attachmentUrlsEl) attachmentUrlsEl.value = "";
+  if (statusEl) statusEl.textContent = "";
+  if (counterEl) counterEl.textContent = "0 / 120 حرف كحد أدنى";
+
+  document.getElementById("complaintTripBox")?.classList.add("hidden");
+}
+
+function updateComplaintCounter() {
+  const exactProblemEl = document.getElementById("complaintExactProblem");
+  const counterEl = document.getElementById("complaintProblemCounter");
+  if (!exactProblemEl || !counterEl) return;
+
+  const len = exactProblemEl.value.trim().length;
+  counterEl.textContent = `${len} / 120 حرف كحد أدنى`;
+}
+
+async function loadComplaintTripOptions(uid, role) {
+  const tripEl = document.getElementById("complaintTripId");
+  if (!tripEl) return;
+
+  tripEl.innerHTML = `<option value="">اختر الرحلة</option>`;
+
+  const field = role === "driver" ? "driverId" : "riderId";
+
+  try {
+    const q = query(
+      collection(db, "trips"),
+      where(field, "==", uid),
+      orderBy("createdAt", "desc"),
+      limit(20)
+    );
+
+    const snap = await getDocs(q);
+
+    snap.forEach((docSnap) => {
+      const t = docSnap.data();
+      const option = document.createElement("option");
+      option.value = docSnap.id;
+      option.textContent = `${t.pickup || "—"} → ${t.dropoff || "—"}${t.status ? ` | ${t.status}` : ""}`;
+      tripEl.appendChild(option);
+    });
+  } catch (e) {
+    console.error("loadComplaintTripOptions error:", e);
+  }
+}
+
+function initComplaintFormUI(uid, role) {
+  const toggleBtn = document.getElementById("toggleComplaintFormBtn");
+  const wrap = document.getElementById("complaintFormWrap");
+  const cancelBtn = document.getElementById("cancelComplaintFormBtn");
+  const typeEl = document.getElementById("complaintType");
+  const exactProblemEl = document.getElementById("complaintExactProblem");
+
+  toggleBtn?.addEventListener("click", async () => {
+    wrap?.classList.toggle("hidden");
+    if (!wrap?.classList.contains("hidden")) {
+      await loadComplaintTripOptions(uid, role);
+    }
+  });
+
+  cancelBtn?.addEventListener("click", () => {
+    wrap?.classList.add("hidden");
+    resetComplaintForm();
+  });
+
+  typeEl?.addEventListener("change", async () => {
+    const type = typeEl.value;
+    const tripBox = document.getElementById("complaintTripBox");
+
+    if (shouldComplaintUseTrip(type)) {
+      tripBox?.classList.remove("hidden");
+      await loadComplaintTripOptions(uid, role);
+    } else {
+      tripBox?.classList.add("hidden");
+    }
+  });
+
+  exactProblemEl?.addEventListener("input", updateComplaintCounter);
+}
+
+async function submitComplaint(uid, role) {
+  const typeEl = document.getElementById("complaintType");
+  const titleEl = document.getElementById("complaintTitle");
+  const tripEl = document.getElementById("complaintTripId");
+  const issueSummaryEl = document.getElementById("complaintIssueSummary");
+  const exactProblemEl = document.getElementById("complaintExactProblem");
+  const expectedSolutionEl = document.getElementById("complaintExpectedSolution");
+  const extraContextEl = document.getElementById("complaintExtraContext");
+  const attachmentUrlsEl = document.getElementById("complaintAttachmentUrls");
+  const statusEl = document.getElementById("complaintFormStatus");
+
+  const type = typeEl?.value || "";
+  const title = titleEl?.value?.trim() || "";
+  const tripId = tripEl?.value || "";
+  const issueSummary = issueSummaryEl?.value?.trim() || "";
+  const exactProblem = exactProblemEl?.value?.trim() || "";
+  const expectedSolution = expectedSolutionEl?.value?.trim() || "";
+  const extraContext = extraContextEl?.value?.trim() || "";
+  const attachmentUrls = parseComplaintAttachmentUrls(attachmentUrlsEl?.value || "");
+
+  if (!type) {
+    if (statusEl) statusEl.textContent = "اختر نوع الشكوى.";
+    return;
+  }
+
+  if (!title || title.length < 8) {
+    if (statusEl) statusEl.textContent = "اكتب عنوانًا مختصرًا وواضحًا للشكوى.";
+    return;
+  }
+
+  if (shouldComplaintUseTrip(type) && !tripId) {
+    if (statusEl) statusEl.textContent = "اختر الرحلة المرتبطة بالشكوى.";
+    return;
+  }
+
+  if (!issueSummary || issueSummary.length < 20) {
+    if (statusEl) statusEl.textContent = "اكتب شرحًا مختصرًا واضحًا للمشكلة.";
+    return;
+  }
+
+  if (!exactProblem || exactProblem.length < 120) {
+    if (statusEl) statusEl.textContent = "اكتب تفاصيل كافية للمشكلة (120 حرفًا على الأقل).";
+    return;
+  }
+
+  if (!expectedSolution || expectedSolution.length < 10) {
+    if (statusEl) statusEl.textContent = "اكتب ما الحل الذي تتوقعه.";
+    return;
+  }
+
+  let tripSnapshot = null;
+  let againstUid = "";
+
+  if (tripId) {
+    try {
+      const tripSnap = await getDoc(doc(db, "trips", tripId));
+      if (tripSnap.exists()) {
+        const t = tripSnap.data();
+        tripSnapshot = {
+          pickup: t.pickup || "",
+          dropoff: t.dropoff || "",
+          driverId: t.driverId || "",
+          riderId: t.riderId || "",
+          price: t.price || 0
+        };
+
+        if (role === "rider") {
+          againstUid = t.driverId || "";
+        } else if (role === "driver") {
+          againstUid = t.riderId || "";
+        }
+      }
+    } catch (e) {
+      console.error("submitComplaint trip snapshot error:", e);
+    }
+  }
+
+  if (statusEl) statusEl.textContent = "جارٍ إرسال الشكوى...";
+
+  await addDoc(collection(db, "complaints"), {
+    uid,
+    role,
+    type,
+    status: "new",
+    title,
+    description: exactProblem,
+    tripId: tripId || "",
+    againstUid,
+    tripSnapshot,
+    answers: {
+      issueSummary,
+      exactProblem,
+      expectedSolution,
+      extraContext
+    },
+    attachmentUrls,
+    adminNote: "",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+
+  if (statusEl) statusEl.textContent = "تم إرسال الشكوى بنجاح ✅";
+  resetComplaintForm();
+  document.getElementById("complaintFormWrap")?.classList.add("hidden");
+}
+
+function renderComplaintCard(id, c) {
+  const attachmentsHtml = Array.isArray(c.attachmentUrls) && c.attachmentUrls.length
+    ? `
+      <div class="mt-3 flex flex-wrap gap-2">
+        ${c.attachmentUrls.map((url) => `
+          <a target="_blank"
+             href="${escapeHtml(url)}"
+             class="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs text-white ring-1 ring-white/10 hover:bg-white/15">
+            <span>🔗</span>
+            <span>فتح مرفق</span>
+          </a>
+        `).join("")}
+      </div>
+    `
+    : "";
+
+  const tripHtml = c.tripSnapshot
+    ? `
+      <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+        <div class="text-[11px] font-semibold text-slate-400">الرحلة المرتبطة</div>
+        <div class="mt-1 text-xs text-white break-all">
+          ${escapeHtml(c.tripSnapshot.pickup || "—")} → ${escapeHtml(c.tripSnapshot.dropoff || "—")}
+        </div>
+        <div class="mt-2 text-[11px] text-slate-300">
+          السعر: ${Number(c.tripSnapshot.price || 0)} جنيه
+        </div>
+      </div>
+    `
+    : "";
+
+  const adminNoteHtml = c.adminNote
+    ? `
+      <div class="mt-3 rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/20 p-3">
+        <div class="text-[11px] font-semibold text-emerald-300">ملاحظة الإدارة</div>
+        <div class="mt-1 text-xs text-white break-words">${escapeHtml(c.adminNote)}</div>
+      </div>
+    `
+    : "";
+
+  return `
+    <div class="rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-white break-words">${escapeHtml(c.title || "شكوى بدون عنوان")}</div>
+          <div class="mt-1 text-xs text-slate-400">${getComplaintTypeLabel(c.type)}</div>
+        </div>
+        <div>${getComplaintStatusBadge(c.status)}</div>
+      </div>
+
+      <div class="mt-3 text-xs text-slate-200 break-words">
+        ${escapeHtml(c.answers?.issueSummary || c.description || "")}
+      </div>
+
+      ${tripHtml}
+
+      <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+        <div class="text-[11px] font-semibold text-slate-400">تفاصيل الشكوى</div>
+        <div class="mt-1 text-xs text-white break-words">${escapeHtml(c.description || "")}</div>
+      </div>
+
+      <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+        <div class="text-[11px] font-semibold text-slate-400">الحل المتوقع</div>
+        <div class="mt-1 text-xs text-white break-words">${escapeHtml(c.answers?.expectedSolution || "")}</div>
+      </div>
+
+      ${c.answers?.extraContext ? `
+        <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-[11px] font-semibold text-slate-400">معلومات إضافية</div>
+          <div class="mt-1 text-xs text-white break-words">${escapeHtml(c.answers.extraContext)}</div>
+        </div>
+      ` : ""}
+
+      ${attachmentsHtml}
+      ${adminNoteHtml}
+    </div>
+  `;
+}
+
+function watchMyComplaints(uid) {
+  const list = document.getElementById("myComplaintsList");
+  if (!list) return;
+
+  if (unsubscribeMyComplaints) unsubscribeMyComplaints();
+
+  list.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل الشكاوى...</div>`;
+
+  const q = query(
+    collection(db, "complaints"),
+    where("uid", "==", uid),
+    orderBy("createdAt", "desc"),
+    limit(30)
+  );
+
+  unsubscribeMyComplaints = onSnapshot(q, (snap) => {
+    if (snap.empty) {
+      list.innerHTML = `<div class="text-xs text-slate-400">لا توجد شكاوى حتى الآن.</div>`;
+      return;
+    }
+
+    list.innerHTML = snap.docs.map((docSnap) => {
+      return renderComplaintCard(docSnap.id, docSnap.data());
+    }).join("");
+  }, (err) => {
+    console.error("watchMyComplaints error:", err);
+    list.innerHTML = `<div class="text-xs text-rose-300">تعذر تحميل الشكاوى.</div>`;
+  });
+}
+
+function renderAdminComplaintCard(id, c) {
+  return `
+    <div class="rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-white break-words">${escapeHtml(c.title || "شكوى بدون عنوان")}</div>
+          <div class="mt-1 text-xs text-slate-400">
+            ${getComplaintTypeLabel(c.type)} • ${escapeHtml(c.role || "")} • UID: ${escapeHtml(c.uid || "")}
+          </div>
+        </div>
+        <div>${getComplaintStatusBadge(c.status)}</div>
+      </div>
+
+      ${c.tripSnapshot ? `
+        <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-[11px] font-semibold text-slate-400">الرحلة المرتبطة</div>
+          <div class="mt-1 text-xs text-white break-all">
+            ${escapeHtml(c.tripSnapshot.pickup || "—")} → ${escapeHtml(c.tripSnapshot.dropoff || "—")}
+          </div>
+          <div class="mt-2 text-[11px] text-slate-300">
+            السعر: ${Number(c.tripSnapshot.price || 0)} جنيه
+          </div>
+        </div>
+      ` : ""}
+
+      <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+        <div class="text-[11px] font-semibold text-slate-400">ملخص المشكلة</div>
+        <div class="mt-1 text-xs text-white break-words">${escapeHtml(c.answers?.issueSummary || "")}</div>
+      </div>
+
+      <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+        <div class="text-[11px] font-semibold text-slate-400">التفاصيل الكاملة</div>
+        <div class="mt-1 text-xs text-white break-words">${escapeHtml(c.description || "")}</div>
+      </div>
+
+      <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+        <div class="text-[11px] font-semibold text-slate-400">الحل المتوقع من المستخدم</div>
+        <div class="mt-1 text-xs text-white break-words">${escapeHtml(c.answers?.expectedSolution || "")}</div>
+      </div>
+
+      ${c.answers?.extraContext ? `
+        <div class="mt-3 rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-[11px] font-semibold text-slate-400">ملاحظات إضافية</div>
+          <div class="mt-1 text-xs text-white break-words">${escapeHtml(c.answers.extraContext)}</div>
+        </div>
+      ` : ""}
+
+      ${
+        Array.isArray(c.attachmentUrls) && c.attachmentUrls.length
+          ? `
+            <div class="mt-3 flex flex-wrap gap-2">
+              ${c.attachmentUrls.map((url) => `
+                <a target="_blank"
+                   href="${escapeHtml(url)}"
+                   class="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs text-white ring-1 ring-white/10 hover:bg-white/15">
+                  <span>🔗</span>
+                  <span>فتح مرفق</span>
+                </a>
+              `).join("")}
+            </div>
+          `
+          : ""
+      }
+
+      <div class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+        <textarea id="adminNote_${id}"
+          class="min-h-[90px] w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-400"
+          placeholder="اكتب ملاحظة الإدارة أو سبب القرار">${escapeHtml(c.adminNote || "")}</textarea>
+
+        <div class="flex flex-col gap-2">
+          <button data-id="${id}" data-status="under_review"
+            class="adminComplaintStatusBtn rounded-2xl bg-sky-500/90 hover:bg-sky-500 text-white text-sm font-semibold px-4 py-2">
+            جاري المراجعة
+          </button>
+
+          <button data-id="${id}" data-status="resolved"
+            class="adminComplaintStatusBtn rounded-2xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">
+            تم الحل
+          </button>
+
+          <button data-id="${id}" data-status="unresolved"
+            class="adminComplaintStatusBtn rounded-2xl bg-rose-500/90 hover:bg-rose-500 text-white text-sm font-semibold px-4 py-2">
+            لم يتم الحل
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function watchAdminComplaints() {
+  const box = document.getElementById("adminComplaintsBox");
+  const list = document.getElementById("adminComplaintsList");
+  if (!box || !list) return;
+
+  box.classList.remove("hidden");
+  list.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل الشكاوى...</div>`;
+
+  const q = query(
+    collection(db, "complaints"),
+    orderBy("createdAt", "desc"),
+    limit(100)
+  );
+
+  onSnapshot(q, (snap) => {
+    if (snap.empty) {
+      list.innerHTML = `<div class="text-xs text-slate-400">لا توجد شكاوى.</div>`;
+      return;
+    }
+
+    list.innerHTML = snap.docs.map((docSnap) => {
+      return renderAdminComplaintCard(docSnap.id, docSnap.data());
+    }).join("");
+
+    list.querySelectorAll(".adminComplaintStatusBtn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        const status = btn.getAttribute("data-status");
+        if (!id || !status) return;
+
+        const noteEl = document.getElementById(`adminNote_${id}`);
+        const adminNote = noteEl?.value?.trim() || "";
+
+        try {
+          await updateDoc(doc(db, "complaints", id), {
+            status,
+            adminNote,
+            updatedAt: serverTimestamp()
+          });
+          showAlert("تم تحديث حالة الشكوى ✅", "success");
+        } catch (e) {
+          console.error(e);
+          showAlert("فشل تحديث الشكوى.", "error");
+        }
+      });
+    });
+  }, (err) => {
+    console.error("watchAdminComplaints error:", err);
+    list.innerHTML = `<div class="text-xs text-rose-300">تعذر تحميل الشكاوى.</div>`;
+  });
+}
+
+document.getElementById("submitComplaintBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const userSnap = await getDoc(doc(db, "users", user.uid));
+    if (!userSnap.exists()) return;
+
+    const role = userSnap.data().role || "rider";
+    await submitComplaint(user.uid, role);
+  } catch (e) {
+    console.error(e);
+    const statusEl = document.getElementById("complaintFormStatus");
+    if (statusEl) statusEl.textContent = "فشل إرسال الشكوى. حاول مرة أخرى.";
+  }
+});
+
 // ✅ Auth state
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -346,9 +856,11 @@ if (vehicleLicenseExpiry) vehicleLicenseExpiry.value = privateData?.vehicleLicen
 const riderBox = document.getElementById("riderBox");
 const driverBox = document.getElementById("driverBox");
 const adminBox = document.getElementById("adminBox");
+initComplaintFormUI(user.uid, profile.role || "rider");
+watchMyComplaints(user.uid);
     
 if (profile.role === "admin") {
-
+    watchAdminComplaints();
   adminBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
   driverBox?.classList.add("hidden");
@@ -2725,6 +3237,8 @@ let selectedRiderRating = 0;
 let selectedDriverRating = 0;
 let ratingWidgetsInitialized = false;
 let unsubscribeMyTrip = null;
+let unsubscribeMyComplaints = null;
+
 let unsubscribeRiderTripDoc = null;
 
 function watchMyLatestTrip(riderId) {
@@ -3060,6 +3574,7 @@ function watchMyLatestTrip(riderId) {
 // ========== Driver Realtime: watch current trip ==========
 let unsubscribeDriverTrip = null;
 let unsubscribeDriverTripDoc = null;
+let unsubscribeMyComplaints = null;
 let driverLocationWatcherId = null;
 let riderLiveMap = null;
 let driverLiveSharingTripId = null;
