@@ -477,6 +477,114 @@
       <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
   <p class="text-sm font-semibold">رحلتي الحالية</p>
   <div class="mt-2 text-xs text-slate-300" id="myTripInfo">لا يوجد طلب حاليًا.</div>
+
+<!-- Complaints Box -->
+<div id="complaintsBox" class="mt-6 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <div class="text-sm font-semibold text-white">الشكاوى والدعم</div>
+      <div class="mt-1 text-xs text-slate-400">سجّل شكواك مرة واحدة بشكل واضح، وتابع حالتها بدون مكالمات أو شات.</div>
+    </div>
+    <button id="toggleComplaintFormBtn"
+      class="rounded-2xl bg-indigo-500/90 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2">
+      تقديم شكوى
+    </button>
+  </div>
+
+  <div id="complaintFormWrap" class="hidden mt-4 space-y-4">
+    <div>
+      <label class="mb-2 block text-xs font-semibold text-slate-300">نوع الشكوى</label>
+      <select id="complaintType"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+        <option value="">اختر نوع الشكوى</option>
+        <option value="trip_issue">مشكلة في رحلة</option>
+        <option value="app_bug">مشكلة في التطبيق / الويب آب</option>
+        <option value="driver_report">شكوى على سائق</option>
+        <option value="rider_report">شكوى على راكب</option>
+        <option value="payment_issue">مشكلة في الدفع / السعر</option>
+        <option value="account_issue">مشكلة في الحساب أو التوثيق</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="mb-2 block text-xs font-semibold text-slate-300">عنوان مختصر للشكوى</label>
+      <input id="complaintTitle" type="text"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="مثال: السائق لم يصل إلى نقطة الالتقاء" />
+    </div>
+
+    <div id="complaintTripBox" class="hidden">
+      <label class="mb-2 block text-xs font-semibold text-slate-300">الرحلة المرتبطة بالشكوى</label>
+      <select id="complaintTripId"
+        class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+        <option value="">اختر الرحلة</option>
+      </select>
+      <p class="mt-2 text-xs text-slate-400">اختيار الرحلة يساعد الإدارة على المراجعة أسرع.</p>
+    </div>
+
+    <div>
+      <label class="mb-2 block text-xs font-semibold text-slate-300">اشرح المشكلة باختصار واضح</label>
+      <textarea id="complaintIssueSummary"
+        class="min-h-[90px] w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="ماذا حدث؟ متى بدأت المشكلة؟"></textarea>
+    </div>
+
+    <div>
+      <label class="mb-2 block text-xs font-semibold text-slate-300">اكتب كل التفاصيل اللازمة لحل المشكلة</label>
+      <textarea id="complaintExactProblem"
+        class="min-h-[140px] w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="اكتب تفاصيل كاملة تكفي لفهم المشكلة من أول مرة بدون الحاجة للتواصل معك."></textarea>
+      <div id="complaintProblemCounter" class="mt-2 text-[11px] text-slate-400">0 / 120 حرف كحد أدنى</div>
+    </div>
+
+    <div>
+      <label class="mb-2 block text-xs font-semibold text-slate-300">ما الحل الذي تتوقعه؟</label>
+      <textarea id="complaintExpectedSolution"
+        class="min-h-[90px] w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="مثال: مراجعة الرحلة / حل المشكلة التقنية / إزالة المخالفة / توضيح السبب"></textarea>
+    </div>
+
+    <div>
+      <label class="mb-2 block text-xs font-semibold text-slate-300">أي ملاحظات إضافية؟ (اختياري)</label>
+      <textarea id="complaintExtraContext"
+        class="min-h-[80px] w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="أي معلومات إضافية قد تساعد الإدارة"></textarea>
+    </div>
+
+    <div>
+      <label class="mb-2 block text-xs font-semibold text-slate-300">روابط صور أو أدلة (اختياري)</label>
+      <textarea id="complaintAttachmentUrls"
+        class="min-h-[80px] w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="ضع كل رابط في سطر مستقل"></textarea>
+    </div>
+
+    <div class="rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/20 p-3 text-xs text-amber-200">
+      لن يمكن إرسال الشكوى إلا بعد كتابة تفاصيل كافية.
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <button id="submitComplaintBtn"
+        class="rounded-2xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-3">
+        إرسال الشكوى
+      </button>
+
+      <button id="cancelComplaintFormBtn"
+        class="rounded-2xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-4 py-3">
+        إلغاء
+      </button>
+    </div>
+
+    <div id="complaintFormStatus" class="text-xs text-slate-300"></div>
+  </div>
+</div>
+
+<div id="myComplaintsBox" class="mt-6 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
+  <div class="text-sm font-semibold text-white">شكاواي</div>
+  <div class="mt-1 text-xs text-slate-400">تابع حالة الشكاوى المرسلة.</div>
+  <div id="myComplaintsList" class="mt-4 space-y-3"></div>
+</div>
+
+        
         <!-- Live driver tracking for rider -->
 <div id="riderLiveTrackingBox" class="mt-4 hidden rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
   <div class="flex items-center justify-between gap-3">
@@ -815,6 +923,17 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
         <div id="adminUpdateRequestsList" class="mt-4 grid gap-4"></div>
       </div>
     </div>
+
+     <div id="adminComplaintsBox" class="mt-6 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4 hidden">
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <div class="text-sm font-semibold text-white">إدارة الشكاوى</div>
+      <div class="mt-1 text-xs text-slate-400">راجع الشكاوى وغيّر حالتها.</div>
+    </div>
+  </div>
+  <div id="adminComplaintsList" class="mt-4 space-y-4"></div>
+</div>
+    
   </div>
 </div>
 
