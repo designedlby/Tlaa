@@ -2617,7 +2617,6 @@ let selectedDriverRating = 0;
 let ratingWidgetsInitialized = false;
 let unsubscribeMyTrip = null;
 let unsubscribeRiderTripDoc = null;
-let currentDriverVerification = { ok: true, issues: [] };
 
 function watchMyLatestTrip(riderId) {
   const info = document.getElementById("myTripInfo");
