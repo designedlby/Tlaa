@@ -1396,13 +1396,116 @@ async function openAdminUserTrips(userId, role) {
   }
 }
 
+const APP_NAV_CONFIG = {
+  guest: [
+    { key: "login", label: "تسجيل الدخول" },
+    { key: "signup", label: "إنشاء حساب" }
+  ],
+  rider: [
+    { key: "request", label: "طلب رحلة" },
+    { key: "my_trip", label: "رحلتي الحالية" },
+    { key: "complaints", label: "الشكاوى" },
+    { key: "profile", label: "الحساب" }
+  ],
+  driver: [
+    { key: "requests", label: "الطلبات المتاحة" },
+    { key: "current_trip", label: "رحلتي الحالية" },
+    { key: "complaints", label: "الشكاوى" },
+    { key: "profile", label: "الحساب" }
+  ],
+  admin: [
+    { key: "verifications", label: "التوثيق" },
+    { key: "profile_updates", label: "تعديل البيانات" },
+    { key: "complaints", label: "الشكاوى" },
+    { key: "users", label: "المستخدمون" }
+  ]
+};
+
+let currentAppRole = "guest";
+let currentAppSection = "login";
+
+function hideAllAppSections() {
+  document.querySelectorAll(".appSection").forEach((el) => {
+    el.classList.remove("isActive");
+  });
+}
+
+function showAppSection(role, section) {
+  currentAppRole = role;
+  currentAppSection = section;
+
+  hideAllAppSections();
+
+  document.querySelectorAll(`.appSection[data-role="${role}"][data-section="${section}"]`).forEach((el) => {
+    el.classList.add("isActive");
+  });
+
+  document.querySelectorAll(".appNavBtn").forEach((btn) => {
+    const isMatch = btn.getAttribute("data-role") === role && btn.getAttribute("data-section") === section;
+    btn.classList.toggle("isActive", isMatch);
+  });
+}
+
+function renderAppNav(role) {
+  const wrap = document.getElementById("appNavWrap");
+  const nav = document.getElementById("appNav");
+  const title = document.getElementById("appNavTitle");
+  if (!wrap || !nav || !title) return;
+
+  const items = APP_NAV_CONFIG[role] || [];
+  if (!items.length) {
+    wrap.classList.add("hidden");
+    nav.innerHTML = "";
+    return;
+  }
+
+  wrap.classList.remove("hidden");
+  title.textContent = role === "guest"
+    ? "ابدأ"
+    : role === "rider"
+    ? "تنقل الراكب"
+    : role === "driver"
+    ? "تنقل السائق"
+    : "لوحة الإدارة";
+
+  nav.innerHTML = items.map((item) => `
+    <button
+      class="appNavBtn ${currentAppRole === role && currentAppSection === item.key ? "isActive" : ""}"
+      data-role="${role}"
+      data-section="${item.key}">
+      ${item.label}
+    </button>
+  `).join("");
+
+  nav.querySelectorAll(".appNavBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetRole = btn.getAttribute("data-role");
+      const targetSection = btn.getAttribute("data-section");
+      showAppSection(targetRole, targetSection);
+    });
+  });
+}
+
+function initRoleBasedNavigation(role) {
+  currentAppRole = role;
+
+  if (role === "guest") currentAppSection = "login";
+  if (role === "rider") currentAppSection = "request";
+  if (role === "driver") currentAppSection = "requests";
+  if (role === "admin") currentAppSection = "verifications";
+
+  renderAppNav(role);
+  showAppSection(role, currentAppSection);
+}
+
 // ✅ Auth state
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    appBox?.classList.add("hidden");
-    // خليك على آخر تاب مستخدمه أو login
-    return;
-  }
+  appBox?.classList.add("hidden");
+  renderAppNav("guest");
+  showAppSection("guest", "login");
+  return;
+}
 
   try {
     const ref = doc(db, "users", user.uid);
@@ -1586,7 +1689,8 @@ if (profile.role === "admin") {
   adminBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
   driverBox?.classList.add("hidden");
-
+  
+  initRoleBasedNavigation("admin");
   await loadPendingDriverVerifications();
   await loadPendingProfileUpdateRequests();
 
@@ -1596,6 +1700,7 @@ if (profile.role === "admin") {
   riderBox?.classList.add("hidden");
   adminBox?.classList.add("hidden");
 
+  initRoleBasedNavigation("driver");
   const verification = evaluateDriverVerification(profile, privateData);
   currentDriverVerification = verification;
   renderDriverVerificationUI(verification);
@@ -1612,7 +1717,8 @@ if (profile.role === "admin") {
   riderBox?.classList.remove("hidden");
   driverBox?.classList.add("hidden");
   adminBox?.classList.add("hidden");
-
+  initRoleBasedNavigation("rider");
+  
   initMapOnce();
   watchMyLatestTrip(user.uid);
   await loadMyLatestProfileUpdateRequest(user.uid);
