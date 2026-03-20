@@ -827,6 +827,78 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
   </div>
   <div id="adminComplaintsList" class="mt-4 space-y-4"></div>
 </div>
+
+<!-- Admin Users Management -->
+<div id="adminUsersBox" class="mt-6 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4 hidden">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <div class="text-sm font-semibold text-white">إدارة المستخدمين</div>
+      <div class="mt-1 text-xs text-slate-400">عرض السائقين والركاب مع البحث والفلاتر والتحكم الإداري.</div>
+    </div>
+
+    <button id="refreshAdminUsersBtn"
+      class="rounded-2xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-4 py-2">
+      تحديث
+    </button>
+  </div>
+
+  <div class="mt-4 grid gap-3 lg:grid-cols-[auto_auto_auto_1fr]">
+    <div class="flex flex-wrap gap-2">
+      <button data-user-tab="all"
+        class="adminUserTabBtn rounded-2xl bg-indigo-500/90 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2">
+        الكل
+      </button>
+      <button data-user-tab="driver"
+        class="adminUserTabBtn rounded-2xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-4 py-2">
+        السائقون
+      </button>
+      <button data-user-tab="rider"
+        class="adminUserTabBtn rounded-2xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-4 py-2">
+        الركاب
+      </button>
+    </div>
+
+    <select id="adminUserStatusFilter"
+      class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-400">
+      <option value="all">كل الحالات</option>
+      <option value="active">نشط</option>
+      <option value="suspended">موقوف</option>
+    </select>
+
+    <select id="adminVerificationFilter"
+      class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-400">
+      <option value="all">كل حالات التوثيق</option>
+      <option value="approved">معتمد</option>
+      <option value="pending">قيد المراجعة</option>
+      <option value="rejected">مرفوض</option>
+      <option value="needs_update">مطلوب تعديل</option>
+      <option value="not_submitted">غير مرسل</option>
+    </select>
+
+    <input id="adminUserSearch"
+      class="w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-400"
+      placeholder="ابحث بالاسم أو الهاتف أو UID أو رقم اللوحة" />
+  </div>
+
+  <div id="adminUsersStats" class="mt-4 text-xs text-slate-400"></div>
+
+  <div id="adminUsersList" class="mt-4 space-y-4"></div>
+</div>
+
+<!-- Admin User Details Modal -->
+<div id="adminUserDetailsModal" class="hidden fixed inset-0 z-50 bg-black/70 p-4">
+  <div class="mx-auto max-w-3xl rounded-3xl bg-slate-950 ring-1 ring-white/10 p-4 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between gap-3">
+      <div class="text-sm font-semibold text-white">تفاصيل المستخدم</div>
+      <button id="closeAdminUserDetailsModalBtn"
+        class="rounded-2xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-4 py-2">
+        إغلاق
+      </button>
+    </div>
+
+    <div id="adminUserDetailsContent" class="mt-4"></div>
+  </div>
+</div>
     
   </div>
 </div>
