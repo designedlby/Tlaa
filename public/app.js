@@ -1397,10 +1397,6 @@ async function openAdminUserTrips(userId, role) {
 }
 
 const APP_NAV_CONFIG = {
-  guest: [
-    { key: "login", label: "تسجيل الدخول" },
-    { key: "signup", label: "إنشاء حساب" }
-  ],
   rider: [
     { key: "request", label: "طلب رحلة" },
     { key: "my_trip", label: "رحلتي الحالية" },
@@ -1501,7 +1497,20 @@ function renderAppNav(role) {
 function initRoleBasedNavigation(role) {
   currentAppRole = role;
 
-  if (role === "guest") currentAppSection = "login";
+  // guest: لا نستخدم له الـ nav الجديد نهائيًا
+  if (role === "guest") {
+    const wrap = document.getElementById("appNavWrap");
+    if (wrap) wrap.classList.add("hidden");
+
+    hideAllAppSections();
+
+    document.querySelectorAll(`.appSection[data-role="guest"]`).forEach((el) => {
+      el.classList.add("isActive");
+    });
+
+    return;
+  }
+
   if (role === "rider") currentAppSection = "request";
   if (role === "driver") currentAppSection = "requests";
   if (role === "admin") currentAppSection = "verifications";
@@ -1514,11 +1523,10 @@ function initRoleBasedNavigation(role) {
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
   appBox?.classList.add("hidden");
-  renderAppNav("guest");
-  showAppSection("guest", "login");
+  initRoleBasedNavigation("guest");
   return;
 }
-
+  
   try {
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
