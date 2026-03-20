@@ -283,7 +283,21 @@ async function loadComplaintTripOptions(uid, role) {
   const tripEl = document.getElementById("complaintTripId");
   if (!tripEl) return;
 
-  tripEl.innerHTML = `<option value="">اختر الرحلة</option>`;
+  const cacheKey = `${role}_${uid}`;
+
+  // لو موجودة في الكاش، استخدمها فورًا
+  if (complaintTripOptionsCache[cacheKey]) {
+    tripEl.innerHTML = `<option value="">اختر الرحلة</option>`;
+    complaintTripOptionsCache[cacheKey].forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.id;
+      option.textContent = item.label;
+      tripEl.appendChild(option);
+    });
+    return;
+  }
+
+  tripEl.innerHTML = `<option value="">جارٍ تحميل الرحلات...</option>`;
 
   const field = role === "driver" ? "driverId" : "riderId";
 
@@ -297,21 +311,37 @@ async function loadComplaintTripOptions(uid, role) {
 
     const snap = await getDocs(q);
 
+    const options = [];
+
     snap.forEach((docSnap) => {
       const t = docSnap.data();
+      options.push({
+        id: docSnap.id,
+        label: `${t.pickup || "—"} → ${t.dropoff || "—"}${t.status ? ` | ${t.status}` : ""}`
+      });
+    });
+
+    complaintTripOptionsCache[cacheKey] = options;
+
+    tripEl.innerHTML = `<option value="">اختر الرحلة</option>`;
+
+    options.forEach((item) => {
       const option = document.createElement("option");
-      option.value = docSnap.id;
-      option.textContent = `${t.pickup || "—"} → ${t.dropoff || "—"}${t.status ? ` | ${t.status}` : ""}`;
+      option.value = item.id;
+      option.textContent = item.label;
       tripEl.appendChild(option);
     });
   } catch (e) {
     console.error("loadComplaintTripOptions error:", e);
+    tripEl.innerHTML = `<option value="">تعذر تحميل الرحلات</option>`;
   }
 }
 
 function initComplaintFormUI(uid, role) {
-  document.addEventListener("click", async (e) => {
+  if (complaintFormUiInitialized) return;
+  complaintFormUiInitialized = true;
 
+  document.addEventListener("click", async (e) => {
     // زر فتح الفورم
     if (e.target.id === "toggleComplaintFormBtn") {
       const wrap = document.getElementById("complaintFormWrap");
@@ -320,7 +350,12 @@ function initComplaintFormUI(uid, role) {
       wrap.classList.toggle("hidden");
 
       if (!wrap.classList.contains("hidden")) {
-        await loadComplaintTripOptions(uid, role);
+        const typeEl = document.getElementById("complaintType");
+        const type = typeEl?.value || "";
+
+        if (shouldComplaintUseTrip(type)) {
+          await loadComplaintTripOptions(uid, role);
+        }
       }
     }
 
@@ -341,10 +376,8 @@ function initComplaintFormUI(uid, role) {
         if (statusEl) statusEl.textContent = "فشل إرسال الشكوى.";
       }
     }
-
   });
 
-  // تغيير النوع (select)
   document.addEventListener("change", async (e) => {
     if (e.target.id === "complaintType") {
       const type = e.target.value;
@@ -359,13 +392,14 @@ function initComplaintFormUI(uid, role) {
     }
   });
 
-  // عداد الحروف
   document.addEventListener("input", (e) => {
     if (e.target.id === "complaintExactProblem") {
       updateComplaintCounter();
     }
   });
 }
+
+
 async function submitComplaint(uid, role) {
   const typeEl = document.getElementById("complaintType");
   const titleEl = document.getElementById("complaintTitle");
@@ -3245,7 +3279,8 @@ let selectedDriverRating = 0;
 let ratingWidgetsInitialized = false;
 let unsubscribeMyTrip = null;
 let unsubscribeMyComplaints = null;
-
+let complaintFormUiInitialized = false;
+const complaintTripOptionsCache = {};
 let unsubscribeRiderTripDoc = null;
 
 function watchMyLatestTrip(riderId) {
