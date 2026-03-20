@@ -116,6 +116,12 @@ async function upsertUserProfile(db, user, name, role) {
     ratingAvg: 5,
     ratingCount: 0,
     activeTripId: null,
+    accountStatus: "active",
+    accountStatusReason: "",
+    adminNote: "",
+    tripsCount: 0,
+    complaintsOpenCount: 0,
+    verificationStatus: role === "driver" ? "not_submitted" : "",
     createdAt: serverTimestamp()
   }, { merge: true });
 }
@@ -756,7 +762,452 @@ function watchAdminComplaints() {
   });
 }
 
+function getAccountStatusBadge(status) {
+  if (status === "suspended") {
+    return `<span class="inline-flex items-center gap-2 rounded-full bg-rose-500/15 px-2.5 py-1 text-[11px] font-semibold text-rose-300 ring-1 ring-rose-500/20"><span class="h-2 w-2 rounded-full bg-current"></span><span>موقوف</span></span>`;
+  }
+  return `<span class="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20"><span class="h-2 w-2 rounded-full bg-current"></span><span>نشط</span></span>`;
+}
 
+function getVerificationBadge(status) {
+  if (!status) return `<span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-300 ring-1 ring-white/10">غير محدد</span>`;
+  if (status === "approved") return `<span class="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 ring-1 ring-emerald-500/20">معتمد</span>`;
+  if (status === "pending") return `<span class="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-amber-300 ring-1 ring-amber-500/20">قيد المراجعة</span>`;
+  if (status === "rejected") return `<span class="inline-flex items-center gap-2 rounded-full bg-rose-500/15 px-2.5 py-1 text-[11px] font-semibold text-rose-300 ring-1 ring-rose-500/20">مرفوض</span>`;
+  if (status === "needs_update") return `<span class="inline-flex items-center gap-2 rounded-full bg-sky-500/15 px-2.5 py-1 text-[11px] font-semibold text-sky-300 ring-1 ring-sky-500/20">مطلوب تعديل</span>`;
+  if (status === "not_submitted") return `<span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-300 ring-1 ring-white/10">غير مرسل</span>`;
+  return `<span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-300 ring-1 ring-white/10">${escapeHtml(status)}</span>`;
+}
+
+function matchesAdminUserSearch(u, searchTerm) {
+  if (!searchTerm) return true;
+  const s = searchTerm.toLowerCase();
+
+  const fields = [
+    u.name || "",
+    u.phone || "",
+    u.uid || "",
+    u.carPlate || "",
+    u.carModel || ""
+  ].map(v => String(v).toLowerCase());
+
+  return fields.some(v => v.includes(s));
+}
+
+function renderAdminUserCard(userDoc) {
+  const id = userDoc.id;
+  const u = userDoc.data;
+
+  const ratingAvg = Number(u.ratingAvg || 0).toFixed(1);
+  const ratingCount = Number(u.ratingCount || 0);
+  const tripsCount = Number(u.tripsCount || 0);
+  const complaintsOpenCount = Number(u.complaintsOpenCount || 0);
+  const accountStatus = u.accountStatus || "active";
+  const verificationStatus = u.verificationStatus || "not_submitted";
+
+  const roleLabel = u.role === "driver" ? "سائق" : "راكب";
+
+  const carHtml = u.role === "driver"
+    ? `
+      <div class="mt-3 flex flex-wrap gap-2">
+        ${u.carModel ? `<span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-xs text-slate-200 ring-1 ring-white/10">🚐 ${escapeHtml(u.carModel)}</span>` : ""}
+        ${u.carPlate ? `<span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-xs text-slate-200 ring-1 ring-white/10">🔢 ${escapeHtml(u.carPlate)}</span>` : ""}
+        ${u.carColor ? `<span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5 text-xs text-slate-200 ring-1 ring-white/10">🎨 ${escapeHtml(u.carColor)}</span>` : ""}
+      </div>
+    `
+    : "";
+
+  const verificationHtml = u.role === "driver"
+    ? `
+      <div class="mt-2">
+        ${getVerificationBadge(verificationStatus)}
+      </div>
+    `
+    : "";
+
+  return `
+    <div class="rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="text-sm font-semibold text-white break-all">${escapeHtml(u.name || "بدون اسم")}</div>
+          <div class="mt-1 text-xs text-slate-400 break-all">
+            ${roleLabel} • UID: ${escapeHtml(u.uid || id)}
+          </div>
+          <div class="mt-1 text-xs text-slate-300 break-all">
+            ${u.phone ? escapeHtml(u.phone) : "بدون هاتف"}
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          ${getAccountStatusBadge(accountStatus)}
+          ${u.activeTripId ? `<span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 ring-1 ring-indigo-500/20">لديه رحلة حالية</span>` : ""}
+        </div>
+      </div>
+
+      ${verificationHtml}
+
+      <div class="mt-3 grid gap-2 sm:grid-cols-4 text-xs">
+        <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-slate-400">التقييم</div>
+          <div class="mt-1 font-semibold text-white">⭐ ${ratingAvg} <span class="text-slate-400">(${ratingCount})</span></div>
+        </div>
+
+        <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-slate-400">الرحلات</div>
+          <div class="mt-1 font-semibold text-white">${tripsCount}</div>
+        </div>
+
+        <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-slate-400">شكاوى مفتوحة</div>
+          <div class="mt-1 font-semibold text-white">${complaintsOpenCount}</div>
+        </div>
+
+        <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3">
+          <div class="text-slate-400">آخر نشاط</div>
+          <div class="mt-1 font-semibold text-white">
+            ${u.lastSeenAt?.seconds ? new Date(u.lastSeenAt.seconds * 1000).toLocaleDateString("ar-EG") : "غير متاح"}
+          </div>
+        </div>
+      </div>
+
+      ${carHtml}
+
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button data-user-id="${id}" class="adminViewUserBtn rounded-2xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-4 py-2">
+          عرض التفاصيل
+        </button>
+
+        ${
+          accountStatus === "suspended"
+            ? `<button data-user-id="${id}" class="adminActivateUserBtn rounded-2xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">إعادة تفعيل</button>`
+            : `<button data-user-id="${id}" class="adminSuspendUserBtn rounded-2xl bg-rose-500/90 hover:bg-rose-500 text-white text-sm font-semibold px-4 py-2">إيقاف الحساب</button>`
+        }
+
+        ${
+          u.role === "driver"
+            ? `<button data-user-id="${id}" class="adminRequestDriverUpdateBtn rounded-2xl bg-sky-500/90 hover:bg-sky-500 text-white text-sm font-semibold px-4 py-2">طلب تعديل بيانات</button>`
+            : ""
+        }
+      </div>
+    </div>
+  `;
+}
+
+async function fetchAdminUsersList() {
+  const list = document.getElementById("adminUsersList");
+  const stats = document.getElementById("adminUsersStats");
+  const searchEl = document.getElementById("adminUserSearch");
+  const statusFilterEl = document.getElementById("adminUserStatusFilter");
+  const verificationFilterEl = document.getElementById("adminVerificationFilter");
+
+  if (!list) return;
+
+  list.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل المستخدمين...</div>`;
+
+  try {
+    const q = query(
+      collection(db, "users"),
+      limit(150)
+    );
+
+    const snap = await getDocs(q);
+
+    let docs = snap.docs.map((docSnap) => ({
+      id: docSnap.id,
+      data: docSnap.data()
+    }));
+
+    const searchTerm = searchEl?.value?.trim() || "";
+    const statusFilter = statusFilterEl?.value || "all";
+    const verificationFilter = verificationFilterEl?.value || "all";
+
+    docs = docs.filter((item) => {
+      const u = item.data || {};
+
+      if (adminUsersCurrentTab !== "all" && (u.role || "") !== adminUsersCurrentTab) {
+        return false;
+      }
+
+      if (statusFilter !== "all" && (u.accountStatus || "active") !== statusFilter) {
+        return false;
+      }
+
+      if (verificationFilter !== "all") {
+        if ((u.role || "") !== "driver") return false;
+        if ((u.verificationStatus || "not_submitted") !== verificationFilter) return false;
+      }
+
+      if (!matchesAdminUserSearch(u, searchTerm)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    docs.sort((a, b) => {
+      const aSeen = a.data.lastSeenAt?.seconds || 0;
+      const bSeen = b.data.lastSeenAt?.seconds || 0;
+      return bSeen - aSeen;
+    });
+
+    if (stats) {
+      const allCount = docs.length;
+      const driversCount = docs.filter(x => x.data.role === "driver").length;
+      const ridersCount = docs.filter(x => x.data.role === "rider").length;
+      stats.textContent = `النتائج: ${allCount} • السائقون: ${driversCount} • الركاب: ${ridersCount}`;
+    }
+
+    if (!docs.length) {
+      list.innerHTML = `<div class="text-xs text-slate-400">لا توجد نتائج مطابقة.</div>`;
+      return;
+    }
+
+    list.innerHTML = docs.map(renderAdminUserCard).join("");
+
+    bindAdminUsersActions();
+  } catch (e) {
+    console.error("fetchAdminUsersList error:", e);
+    list.innerHTML = `<div class="text-xs text-rose-300">تعذر تحميل المستخدمين.</div>`;
+  }
+}
+
+async function openAdminUserDetails(userId) {
+  const modal = document.getElementById("adminUserDetailsModal");
+  const content = document.getElementById("adminUserDetailsContent");
+  if (!modal || !content || !userId) return;
+
+  content.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل التفاصيل...</div>`;
+  modal.classList.remove("hidden");
+
+  try {
+    const userSnap = await getDoc(doc(db, "users", userId));
+    if (!userSnap.exists()) {
+      content.innerHTML = `<div class="text-xs text-rose-300">المستخدم غير موجود.</div>`;
+      return;
+    }
+
+    const u = userSnap.data();
+
+    let privateHtml = "";
+    if ((u.role || "") === "driver") {
+      try {
+        const privateSnap = await getDoc(doc(db, "users_private", userId));
+        if (privateSnap.exists()) {
+          const p = privateSnap.data();
+
+          privateHtml = `
+            <div class="mt-4 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+              <div class="text-sm font-semibold text-white">بيانات التوثيق</div>
+              <div class="mt-3 grid gap-2 sm:grid-cols-2 text-xs text-slate-200">
+                <div class="rounded-xl bg-black/20 px-3 py-2">
+                  <span class="text-slate-400">حالة التوثيق:</span>
+                  <div class="mt-1 font-semibold text-white">${escapeHtml(p.verificationStatus || u.verificationStatus || "غير محدد")}</div>
+                </div>
+                <div class="rounded-xl bg-black/20 px-3 py-2">
+                  <span class="text-slate-400">ملاحظة الإدارة:</span>
+                  <div class="mt-1 font-semibold text-white break-words">${escapeHtml(p.adminReviewNote || "") || "—"}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      } catch (e) {
+        console.error("openAdminUserDetails private error:", e);
+      }
+    }
+
+    content.innerHTML = `
+      <div class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+        <div class="text-sm font-semibold text-white">${escapeHtml(u.name || "بدون اسم")}</div>
+        <div class="mt-2 grid gap-2 sm:grid-cols-2 text-xs text-slate-200">
+          <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">UID:</span><div class="mt-1 font-semibold text-white break-all">${escapeHtml(u.uid || userId)}</div></div>
+          <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">الدور:</span><div class="mt-1 font-semibold text-white">${escapeHtml(u.role || "—")}</div></div>
+          <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">الهاتف:</span><div class="mt-1 font-semibold text-white">${escapeHtml(u.phone || "—")}</div></div>
+          <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">الحالة:</span><div class="mt-1 font-semibold text-white">${escapeHtml(u.accountStatus || "active")}</div></div>
+          <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">التقييم:</span><div class="mt-1 font-semibold text-white">${Number(u.ratingAvg || 0).toFixed(1)} (${Number(u.ratingCount || 0)})</div></div>
+          <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">عدد الرحلات:</span><div class="mt-1 font-semibold text-white">${Number(u.tripsCount || 0)}</div></div>
+          <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">شكاوى مفتوحة:</span><div class="mt-1 font-semibold text-white">${Number(u.complaintsOpenCount || 0)}</div></div>
+          <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">آخر نشاط:</span><div class="mt-1 font-semibold text-white">${u.lastSeenAt?.seconds ? new Date(u.lastSeenAt.seconds * 1000).toLocaleString("ar-EG") : "غير متاح"}</div></div>
+        </div>
+
+        ${
+          u.role === "driver"
+            ? `
+              <div class="mt-4 grid gap-2 sm:grid-cols-3 text-xs text-slate-200">
+                <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">موديل السيارة:</span><div class="mt-1 font-semibold text-white">${escapeHtml(u.carModel || "—")}</div></div>
+                <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">اللون:</span><div class="mt-1 font-semibold text-white">${escapeHtml(u.carColor || "—")}</div></div>
+                <div class="rounded-xl bg-black/20 px-3 py-2"><span class="text-slate-400">اللوحة:</span><div class="mt-1 font-semibold text-white">${escapeHtml(u.carPlate || "—")}</div></div>
+              </div>
+            `
+            : ""
+        }
+
+        <div class="mt-4">
+          <label class="mb-2 block text-xs font-semibold text-slate-300">ملاحظة إدارية</label>
+          <textarea id="adminUserNote_${userId}" class="min-h-[100px] w-full rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-400">${escapeHtml(u.adminNote || "")}</textarea>
+          <div class="mt-3">
+            <button id="saveAdminUserNoteBtn" data-user-id="${userId}" class="rounded-2xl bg-indigo-500/90 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2">
+              حفظ الملاحظة
+            </button>
+          </div>
+        </div>
+      </div>
+
+      ${privateHtml}
+    `;
+
+    document.getElementById("saveAdminUserNoteBtn")?.addEventListener("click", async () => {
+      const targetId = document.getElementById("saveAdminUserNoteBtn")?.getAttribute("data-user-id");
+      if (!targetId) return;
+
+      const note = document.getElementById(`adminUserNote_${targetId}`)?.value?.trim() || "";
+
+      try {
+        await updateDoc(doc(db, "users", targetId), {
+          adminNote: note
+        });
+        showAlert("تم حفظ الملاحظة ✅", "success");
+      } catch (e) {
+        console.error(e);
+        showAlert("فشل حفظ الملاحظة.", "error");
+      }
+    });
+  } catch (e) {
+    console.error("openAdminUserDetails error:", e);
+    content.innerHTML = `<div class="text-xs text-rose-300">تعذر تحميل التفاصيل.</div>`;
+  }
+}
+
+function bindAdminUsersActions() {
+  document.querySelectorAll(".adminViewUserBtn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const userId = btn.getAttribute("data-user-id");
+      if (!userId) return;
+      await openAdminUserDetails(userId);
+    });
+  });
+
+  document.querySelectorAll(".adminSuspendUserBtn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const userId = btn.getAttribute("data-user-id");
+      if (!userId) return;
+
+      const reason = window.prompt("اكتب سبب إيقاف الحساب:", "مراجعة إدارية");
+      if (reason === null) return;
+
+      try {
+        await updateDoc(doc(db, "users", userId), {
+          accountStatus: "suspended",
+          accountStatusReason: reason.trim() || "مراجعة إدارية"
+        });
+        showAlert("تم إيقاف الحساب ✅", "success");
+        await fetchAdminUsersList();
+      } catch (e) {
+        console.error(e);
+        showAlert("فشل إيقاف الحساب.", "error");
+      }
+    });
+  });
+
+  document.querySelectorAll(".adminActivateUserBtn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const userId = btn.getAttribute("data-user-id");
+      if (!userId) return;
+
+      try {
+        await updateDoc(doc(db, "users", userId), {
+          accountStatus: "active",
+          accountStatusReason: ""
+        });
+        showAlert("تمت إعادة التفعيل ✅", "success");
+        await fetchAdminUsersList();
+      } catch (e) {
+        console.error(e);
+        showAlert("فشل إعادة التفعيل.", "error");
+      }
+    });
+  });
+
+  document.querySelectorAll(".adminRequestDriverUpdateBtn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const userId = btn.getAttribute("data-user-id");
+      if (!userId) return;
+
+      const note = window.prompt("اكتب المطلوب من السائق تعديله:", "يرجى تعديل بيانات التوثيق");
+      if (note === null) return;
+
+      try {
+        await updateDoc(doc(db, "users", userId), {
+          verificationStatus: "needs_update"
+        });
+
+        await updateDoc(doc(db, "users_private", userId), {
+          verificationStatus: "needs_update",
+          adminReviewNote: note.trim() || "يرجى تعديل بيانات التوثيق"
+        });
+
+        showAlert("تم إرسال طلب تعديل البيانات ✅", "success");
+        await fetchAdminUsersList();
+      } catch (e) {
+        console.error(e);
+        showAlert("فشل إرسال طلب تعديل البيانات.", "error");
+      }
+    });
+  });
+}
+
+function initAdminUsersControls() {
+  document.querySelectorAll(".adminUserTabBtn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const tab = btn.getAttribute("data-user-tab") || "all";
+      adminUsersCurrentTab = tab;
+
+      document.querySelectorAll(".adminUserTabBtn").forEach((b) => {
+        b.classList.remove("bg-indigo-500/90", "hover:bg-indigo-500");
+        b.classList.add("bg-white/10", "hover:bg-white/15");
+      });
+
+      btn.classList.remove("bg-white/10", "hover:bg-white/15");
+      btn.classList.add("bg-indigo-500/90", "hover:bg-indigo-500");
+
+      await fetchAdminUsersList();
+    });
+  });
+
+  document.getElementById("refreshAdminUsersBtn")?.addEventListener("click", async () => {
+    await fetchAdminUsersList();
+  });
+
+  document.getElementById("adminUserStatusFilter")?.addEventListener("change", async () => {
+    await fetchAdminUsersList();
+  });
+
+  document.getElementById("adminVerificationFilter")?.addEventListener("change", async () => {
+    await fetchAdminUsersList();
+  });
+
+  document.getElementById("adminUserSearch")?.addEventListener("input", async () => {
+    await fetchAdminUsersList();
+  });
+
+  document.getElementById("closeAdminUserDetailsModalBtn")?.addEventListener("click", () => {
+    document.getElementById("adminUserDetailsModal")?.classList.add("hidden");
+  });
+}
+
+async function initAdminUsersManagement() {
+  const box = document.getElementById("adminUsersBox");
+  if (!box) return;
+
+  box.classList.remove("hidden");
+
+  if (!adminUsersLoaded) {
+    initAdminUsersControls();
+    adminUsersLoaded = true;
+  }
+
+  await fetchAdminUsersList();
+}
 
 // ✅ Auth state
 onAuthStateChanged(auth, async (user) => {
@@ -902,6 +1353,7 @@ watchMyComplaints(user.uid);
     
 if (profile.role === "admin") {
     watchAdminComplaints();
+  await initAdminUsersManagement();
   adminBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
   driverBox?.classList.add("hidden");
@@ -3279,6 +3731,8 @@ let selectedDriverRating = 0;
 let ratingWidgetsInitialized = false;
 let unsubscribeMyTrip = null;
 let unsubscribeMyComplaints = null;
+let adminUsersCurrentTab = "all";
+let adminUsersLoaded = false;
 let complaintFormUiInitialized = false;
 const complaintTripOptionsCache = {};
 let unsubscribeRiderTripDoc = null;
