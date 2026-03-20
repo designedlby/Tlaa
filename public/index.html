@@ -842,49 +842,42 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
     </button>
   </div>
 
-  <div class="mt-4 grid gap-3 lg:grid-cols-[auto_auto_auto_auto_minmax(260px,1fr)]">
-    <div class="flex flex-wrap gap-2">
-      <button data-user-tab="all"
-        class="adminUserTabBtn rounded-2xl bg-indigo-500/90 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2">
-        الكل
-      </button>
-      <button data-user-tab="driver"
-        class="adminUserTabBtn rounded-2xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-4 py-2">
-        السائقون
-      </button>
-      <button data-user-tab="rider"
-        class="adminUserTabBtn rounded-2xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold px-4 py-2">
-        الركاب
-      </button>
-    </div>
+  <!-- 🔍 البحث -->
+<div class="mt-4">
+  <input id="adminUserSearch"
+    class="w-full rounded-xl bg-black/30 text-white placeholder:text-slate-400 
+    ring-1 ring-white/10 px-4 py-2 text-sm outline-none 
+    focus:ring-2 focus:ring-indigo-400"
+    placeholder="ابحث بالاسم أو الهاتف أو UID أو رقم اللوحة" />
+</div>
 
-    <select id="adminUserStatusFilter"
-      class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-400">
-      <option value="all">كل الحالات</option>
-      <option value="active">نشط</option>
-      <option value="suspended">موقوف</option>
-    </select>
+<!-- 🎛 الفلاتر -->
+<div class="mt-3 flex flex-wrap gap-2">
 
-    <select id="adminVerificationFilter"
-      class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-400">
-      <option value="all">كل حالات التوثيق</option>
-      <option value="approved">معتمد</option>
-      <option value="pending">قيد المراجعة</option>
-      <option value="rejected">مرفوض</option>
-      <option value="needs_update">مطلوب تعديل</option>
-      <option value="not_submitted">غير مرسل</option>
-    </select>
+  <select id="adminUserStatusFilter"
+    class="rounded-xl bg-black/20 text-white text-xs px-3 py-2 ring-1 ring-white/10 outline-none hover:bg-white/10 transition"
+    <option value="all">كل الحالات</option>
+    <option value="active">نشط</option>
+    <option value="suspended">موقوف</option>
+  </select>
 
-<select id="adminComplaintsFilter"
-  class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-400">
-  <option value="all">كل الشكاوى</option>
-  <option value="open_only">لديه شكاوى مفتوحة</option>
-</select>
-    
-    <input id="adminUserSearch"
-  class="w-full min-w-0 rounded-2xl bg-black/30 text-white placeholder:text-slate-400 ring-1 ring-white/10 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-  placeholder="ابحث بالاسم أو الهاتف أو UID أو رقم اللوحة" />
-  </div>
+  <select id="adminVerificationFilter"
+    class="rounded-xl bg-black/20 text-white text-xs px-3 py-2 ring-1 ring-white/10 outline-none hover:bg-white/10 transition"
+    <option value="all">كل التوثيق</option>
+    <option value="approved">معتمد</option>
+    <option value="pending">قيد المراجعة</option>
+    <option value="rejected">مرفوض</option>
+    <option value="needs_update">مطلوب تعديل</option>
+    <option value="not_submitted">غير مرسل</option>
+  </select>
+
+  <select id="adminComplaintsFilter"
+    class="rounded-xl bg-black/20 text-white text-xs px-3 py-2 ring-1 ring-white/10 outline-none hover:bg-white/10 transition"
+    <option value="all">كل الشكاوى</option>
+    <option value="open_only">شكاوى مفتوحة</option>
+  </select>
+
+</div>
 
   <div id="adminUsersStats" class="mt-4 text-xs text-slate-400"></div>
 
