@@ -1410,7 +1410,7 @@ onAuthStateChanged(auth, async (user) => {
     const profile = snap.exists() ? snap.data() : { name: user.email, role: "rider" };
 
     // ✅ هنا بالظبط تحطها
-if (!localStorage.getItem("permissionsAsked")) {
+if (!localStorage.getItem("permissionsAsked") && profile.role !== "admin") {
   setTimeout(() => {
     showPermissionsModal();
   }, 1500);
