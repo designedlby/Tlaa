@@ -889,6 +889,10 @@ function renderAdminUserCard(userDoc) {
           عرض التفاصيل
         </button>
 
+        <button data-user-id="${id}" data-user-role="${escapeHtml(u.role || "")}" class="adminViewUserTripsBtn rounded-2xl bg-indigo-500/90 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2">
+  عرض الرحلات
+</button>
+
         ${
           accountStatus === "suspended"
             ? `<button data-user-id="${id}" class="adminActivateUserBtn rounded-2xl bg-emerald-500/90 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2">إعادة تفعيل</button>`
@@ -1229,6 +1233,11 @@ function initAdminUsersControls() {
     await fetchAdminUsersList();
   });
 
+  document.getElementById("adminComplaintsFilter")?.addEventListener("change", async () => {
+  adminUsersCurrentPage = 1;
+  await fetchAdminUsersList();
+});
+  
   document.getElementById("adminUserSearch")?.addEventListener("input", async () => {
     adminUsersCurrentPage = 1;
     await fetchAdminUsersList();
