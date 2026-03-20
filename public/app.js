@@ -911,6 +911,10 @@ async function fetchAdminUsersList() {
   const searchEl = document.getElementById("adminUserSearch");
   const statusFilterEl = document.getElementById("adminUserStatusFilter");
   const verificationFilterEl = document.getElementById("adminVerificationFilter");
+  const complaintsFilterEl = document.getElementById("adminComplaintsFilter");
+  const pageInfo = document.getElementById("adminUsersPageInfo");
+  const prevBtn = document.getElementById("adminUsersPrevBtn");
+  const nextBtn = document.getElementById("adminUsersNextBtn");
 
   if (!list) return;
 
@@ -919,7 +923,7 @@ async function fetchAdminUsersList() {
   try {
     const q = query(
       collection(db, "users"),
-      limit(150)
+      limit(300)
     );
 
     const snap = await getDocs(q);
@@ -932,6 +936,7 @@ async function fetchAdminUsersList() {
     const searchTerm = searchEl?.value?.trim() || "";
     const statusFilter = statusFilterEl?.value || "all";
     const verificationFilter = verificationFilterEl?.value || "all";
+    const complaintsFilter = complaintsFilterEl?.value || "all";
 
     docs = docs.filter((item) => {
       const u = item.data || {};
@@ -949,6 +954,10 @@ async function fetchAdminUsersList() {
         if ((u.verificationStatus || "not_submitted") !== verificationFilter) return false;
       }
 
+      if (complaintsFilter === "open_only" && Number(u.complaintsOpenCount || 0) <= 0) {
+        return false;
+      }
+
       if (!matchesAdminUserSearch(u, searchTerm)) {
         return false;
       }
@@ -962,19 +971,37 @@ async function fetchAdminUsersList() {
       return bSeen - aSeen;
     });
 
+    adminUsersAllDocsCache = docs;
+
+    const total = docs.length;
+    const totalPages = Math.max(1, Math.ceil(total / adminUsersPageSize));
+
+    if (adminUsersCurrentPage > totalPages) adminUsersCurrentPage = totalPages;
+    if (adminUsersCurrentPage < 1) adminUsersCurrentPage = 1;
+
+    const start = (adminUsersCurrentPage - 1) * adminUsersPageSize;
+    const end = start + adminUsersPageSize;
+    const pageDocs = docs.slice(start, end);
+
     if (stats) {
-      const allCount = docs.length;
       const driversCount = docs.filter(x => x.data.role === "driver").length;
       const ridersCount = docs.filter(x => x.data.role === "rider").length;
-      stats.textContent = `النتائج: ${allCount} • السائقون: ${driversCount} • الركاب: ${ridersCount}`;
+      stats.textContent = `النتائج: ${total} • السائقون: ${driversCount} • الركاب: ${ridersCount}`;
     }
 
-    if (!docs.length) {
+    if (pageInfo) {
+      pageInfo.textContent = `صفحة ${adminUsersCurrentPage} من ${totalPages}`;
+    }
+
+    if (prevBtn) prevBtn.disabled = adminUsersCurrentPage <= 1;
+    if (nextBtn) nextBtn.disabled = adminUsersCurrentPage >= totalPages;
+
+    if (!pageDocs.length) {
       list.innerHTML = `<div class="text-xs text-slate-400">لا توجد نتائج مطابقة.</div>`;
       return;
     }
 
-    list.innerHTML = docs.map(renderAdminUserCard).join("");
+    list.innerHTML = pageDocs.map(renderAdminUserCard).join("");
 
     bindAdminUsersActions();
   } catch (e) {
@@ -1181,30 +1208,50 @@ function initAdminUsersControls() {
 
       btn.classList.remove("bg-white/10", "hover:bg-white/15");
       btn.classList.add("bg-indigo-500/90", "hover:bg-indigo-500");
-
+      
+      adminUsersCurrentPage = 1;
       await fetchAdminUsersList();
     });
   });
 
   document.getElementById("refreshAdminUsersBtn")?.addEventListener("click", async () => {
+    adminUsersCurrentPage = 1;
     await fetchAdminUsersList();
   });
 
   document.getElementById("adminUserStatusFilter")?.addEventListener("change", async () => {
+    adminUsersCurrentPage = 1;
     await fetchAdminUsersList();
   });
 
   document.getElementById("adminVerificationFilter")?.addEventListener("change", async () => {
+    adminUsersCurrentPage = 1;
     await fetchAdminUsersList();
   });
 
   document.getElementById("adminUserSearch")?.addEventListener("input", async () => {
+    adminUsersCurrentPage = 1;
     await fetchAdminUsersList();
   });
 
   document.getElementById("closeAdminUserDetailsModalBtn")?.addEventListener("click", () => {
     document.getElementById("adminUserDetailsModal")?.classList.add("hidden");
   });
+
+  document.getElementById("adminUsersPrevBtn")?.addEventListener("click", async () => {
+  if (adminUsersCurrentPage > 1) {
+    adminUsersCurrentPage -= 1;
+    await fetchAdminUsersList();
+  }
+});
+
+document.getElementById("adminUsersNextBtn")?.addEventListener("click", async () => {
+  const totalPages = Math.max(1, Math.ceil(adminUsersAllDocsCache.length / adminUsersPageSize));
+  if (adminUsersCurrentPage < totalPages) {
+    adminUsersCurrentPage += 1;
+    await fetchAdminUsersList();
+  }
+});
 }
 
 async function initAdminUsersManagement() {
