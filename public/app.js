@@ -310,39 +310,62 @@ async function loadComplaintTripOptions(uid, role) {
 }
 
 function initComplaintFormUI(uid, role) {
-  const toggleBtn = document.getElementById("toggleComplaintFormBtn");
-  const wrap = document.getElementById("complaintFormWrap");
-  const cancelBtn = document.getElementById("cancelComplaintFormBtn");
-  const typeEl = document.getElementById("complaintType");
-  const exactProblemEl = document.getElementById("complaintExactProblem");
+  document.addEventListener("click", async (e) => {
 
-  toggleBtn?.addEventListener("click", async () => {
-    wrap?.classList.toggle("hidden");
-    if (!wrap?.classList.contains("hidden")) {
-      await loadComplaintTripOptions(uid, role);
+    // زر فتح الفورم
+    if (e.target.id === "toggleComplaintFormBtn") {
+      const wrap = document.getElementById("complaintFormWrap");
+      if (!wrap) return;
+
+      wrap.classList.toggle("hidden");
+
+      if (!wrap.classList.contains("hidden")) {
+        await loadComplaintTripOptions(uid, role);
+      }
+    }
+
+    // زر الإلغاء
+    if (e.target.id === "cancelComplaintFormBtn") {
+      const wrap = document.getElementById("complaintFormWrap");
+      wrap?.classList.add("hidden");
+      resetComplaintForm();
+    }
+
+    // زر الإرسال
+    if (e.target.id === "submitComplaintBtn") {
+      try {
+        await submitComplaint(uid, role);
+      } catch (err) {
+        console.error(err);
+        const statusEl = document.getElementById("complaintFormStatus");
+        if (statusEl) statusEl.textContent = "فشل إرسال الشكوى.";
+      }
+    }
+
+  });
+
+  // تغيير النوع (select)
+  document.addEventListener("change", async (e) => {
+    if (e.target.id === "complaintType") {
+      const type = e.target.value;
+      const tripBox = document.getElementById("complaintTripBox");
+
+      if (shouldComplaintUseTrip(type)) {
+        tripBox?.classList.remove("hidden");
+        await loadComplaintTripOptions(uid, role);
+      } else {
+        tripBox?.classList.add("hidden");
+      }
     }
   });
 
-  cancelBtn?.addEventListener("click", () => {
-    wrap?.classList.add("hidden");
-    resetComplaintForm();
-  });
-
-  typeEl?.addEventListener("change", async () => {
-    const type = typeEl.value;
-    const tripBox = document.getElementById("complaintTripBox");
-
-    if (shouldComplaintUseTrip(type)) {
-      tripBox?.classList.remove("hidden");
-      await loadComplaintTripOptions(uid, role);
-    } else {
-      tripBox?.classList.add("hidden");
+  // عداد الحروف
+  document.addEventListener("input", (e) => {
+    if (e.target.id === "complaintExactProblem") {
+      updateComplaintCounter();
     }
   });
-
-  exactProblemEl?.addEventListener("input", updateComplaintCounter);
 }
-
 async function submitComplaint(uid, role) {
   const typeEl = document.getElementById("complaintType");
   const titleEl = document.getElementById("complaintTitle");
