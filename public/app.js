@@ -109,20 +109,32 @@ function getSelectedRole() {
 
 async function upsertUserProfile(db, user, name, role) {
   const ref = doc(db, "users", user.uid);
+
   await setDoc(ref, {
     uid: user.uid,
     name: name || "بدون اسم",
     role,
+
     ratingAvg: 5,
     ratingCount: 0,
+
     activeTripId: null,
+
     accountStatus: "active",
     accountStatusReason: "",
     adminNote: "",
+
     tripsCount: 0,
     complaintsOpenCount: 0,
+
     verificationStatus: role === "driver" ? "not_submitted" : "",
-    createdAt: serverTimestamp()
+
+    carModel: "",
+    carColor: "",
+    carPlate: "",
+
+    createdAt: serverTimestamp(),
+    lastSeenAt: serverTimestamp()
   }, { merge: true });
 }
 
