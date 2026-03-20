@@ -1409,6 +1409,14 @@ onAuthStateChanged(auth, async (user) => {
     const snap = await getDoc(ref);
     const profile = snap.exists() ? snap.data() : { name: user.email, role: "rider" };
 
+    // ✅ هنا بالظبط تحطها
+if (!localStorage.getItem("permissionsAsked")) {
+  setTimeout(() => {
+    showPermissionsModal();
+  }, 1500);
+}
+
+    
         try {
       const patch = {};
 
@@ -5789,6 +5797,49 @@ showAlert("لم نتمكن من قراءة الحافظة. قم باللصق ي�
 
 }
 
+
+async function requestEssentialPermissions() {
+  try {
+    // 📍 طلب الموقع
+    await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
+    console.log("Location granted ✅");
+
+  } catch (e) {
+    console.warn("Location denied ❌", e);
+  }
+
+  try {
+    // 🔔 طلب الإشعارات
+    if ("Notification" in window) {
+      const permission = await Notification.requestPermission();
+      console.log("Notification:", permission);
+    }
+  } catch (e) {
+    console.warn("Notification error:", e);
+  }
+
+  hidePermissionsModal();
+  localStorage.setItem("permissionsAsked", "1");
+}
+
+function showPermissionsModal() {
+  const modal = document.getElementById("permissionsModal");
+  modal?.classList.remove("hidden");
+}
+
+function hidePermissionsModal() {
+  const modal = document.getElementById("permissionsModal");
+  modal?.classList.add("hidden");
+}
+
+
 // buttons
 document.getElementById("pasteNationalId")?.addEventListener("click",()=>pasteFromClipboard("nationalIdUrl"));
 document.getElementById("pasteDriverLicense")?.addEventListener("click",()=>pasteFromClipboard("driverLicenseUrl"));
@@ -5796,6 +5847,15 @@ document.getElementById("pasteVehicleLicense")?.addEventListener("click",()=>pas
 document.getElementById("pasteSelfie")?.addEventListener("click",()=>pasteFromClipboard("selfieUrl"));
 document.getElementById("pasteCarOutside")?.addEventListener("click",()=>pasteFromClipboard("carOutsideUrl"));
 document.getElementById("pasteCarInside")?.addEventListener("click",()=>pasteFromClipboard("carInsideUrl"));
+
+document.getElementById("enablePermissionsBtn")?.addEventListener("click", async () => {
+  await requestEssentialPermissions();
+});
+
+document.getElementById("skipPermissionsBtn")?.addEventListener("click", () => {
+  hidePermissionsModal();
+});
+
 
 document.getElementById("refreshAdminDriversBtn")?.addEventListener("click", async () => {
   await loadPendingDriverVerifications();
