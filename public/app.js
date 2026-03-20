@@ -1296,11 +1296,17 @@ document.getElementById("closeAdminUserTripsModalBtn")?.addEventListener("click"
   await fetchAdminUsersList();
 });
   
-  document.getElementById("adminUserSearch")?.addEventListener("input", async () => {
-    adminUsersCurrentPage = 1;
-    await fetchAdminUsersList();
-  });
+  document.getElementById("adminUserSearch")?.addEventListener("input", () => {
+  adminUsersCurrentPage = 1;
 
+  if (adminUsersSearchDebounceTimer) {
+    clearTimeout(adminUsersSearchDebounceTimer);
+  }
+
+  adminUsersSearchDebounceTimer = setTimeout(async () => {
+    await fetchAdminUsersList();
+  }, 350);
+});
   document.getElementById("closeAdminUserDetailsModalBtn")?.addEventListener("click", () => {
     document.getElementById("adminUserDetailsModal")?.classList.add("hidden");
   });
@@ -3974,6 +3980,7 @@ let unsubscribeMyTrip = null;
 let unsubscribeMyComplaints = null;
 let adminUsersCurrentTab = "all";
 let adminUsersLoaded = false;
+let adminUsersSearchDebounceTimer = null;
 let adminUsersPageSize = 30;
 let adminUsersCurrentPage = 1;
 let adminUsersAllDocsCache = [];
