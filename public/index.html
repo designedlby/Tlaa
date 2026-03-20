@@ -92,6 +92,7 @@
         <!-- Alerts -->
         <div id="alertBox" class="mt-4 hidden rounded-2xl border border-white/10 bg-white/5 p-3 text-sm"></div>
 
+        <div class="appSection" data-role="guest" data-section="signup">
         <!-- Signup -->
         <div id="signupPanel" class="mt-6">
           <div class="grid gap-3">
@@ -162,7 +163,11 @@
             </p>
           </div>
         </div>
+       </div>
 
+
+        
+        <div class="appSection" data-role="guest" data-section="login">
         <!-- Login -->
         <div id="loginPanel" class="mt-6 hidden">
           <div class="grid gap-3">
@@ -189,7 +194,9 @@
             </p>
           </div>
         </div>
+        </div>
 
+        
         <!-- App box after login -->
         <div id="appBox" class="mt-6 hidden">
           <!-- App Navigation -->
@@ -224,6 +231,8 @@
     </div>
   </div>
 </div>
+
+<div class="appSection" data-role="driver" data-section="profile">
           <!-- Profile Setup -->
 <div id="profileBox" class="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4 hidden">
   <p class="text-sm font-semibold">أكمل بياناتك</p>
@@ -293,10 +302,13 @@
     <p id="profileStatus" class="text-xs text-slate-400"></p>
   </div>
 </div>
+</div>
           
           <!-- Rider: Create Trip -->
 <div id="riderBox" class="mt-4 hidden">
   <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+
+    <div class="appSection" data-role="rider" data-section="request">
     <p class="text-sm font-semibold">اطلب رحلة</p>
     <div class="mt-3 grid gap-3">
       <div class="grid gap-2">
@@ -480,6 +492,9 @@
         إرسال الطلب
       </button>
       <p id="riderStatus" class="text-xs text-slate-400"></p>
+      </div>
+
+    <div class="appSection" data-role="rider" data-section="my_trip">
       <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
   <p class="text-sm font-semibold">رحلتي الحالية</p>
   <div class="mt-2 text-xs text-slate-300" id="myTripInfo">لا يوجد طلب حاليًا.</div>
@@ -541,6 +556,7 @@
 </div>
         
 </div>
+</div>      
 
     </div>
   </div>
@@ -559,7 +575,8 @@
   تعديل بيانات الحساب
 </button>
 </div>
-  
+
+  <div class="appSection" data-role="driver" data-section="requests">
   <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
   <p class="text-sm font-semibold">طلبات متاحة</p>
@@ -721,7 +738,9 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
 </p>
     <p class="mt-2 text-xs text-slate-400">ملاحظة: في المرحلة دي بنعرض طلبات pending بشكل مبسّط.</p>
   </div>
+  </div>
 
+  <div class="appSection" data-role="driver" data-section="current_trip">
   <div class="mt-3 rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
   <p class="text-sm font-semibold">رحلتي الحالية (سائق)</p>
   <div class="mt-2 text-xs text-slate-300" id="driverTripInfo">لا توجد رحلة حالية.</div>
@@ -765,6 +784,7 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
 </div>
     
 </div>
+</div>
   
 </div>
 
@@ -789,6 +809,7 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
     </div>
 
     <div class="p-4 sm:p-5">
+          <div class="appSection" data-role="admin" data-section="verifications">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p class="text-sm font-semibold text-white">مراجعة توثيق السائقين</p>
@@ -804,7 +825,9 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
       </div>
 
       <div id="adminDriversList" class="mt-4 grid gap-4"></div>
-
+      </div>
+      
+      <div class="appSection" data-role="admin" data-section="profile_updates">
       <div class="mt-6 border-t border-white/10 pt-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -822,8 +845,10 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
 
         <div id="adminUpdateRequestsList" class="mt-4 grid gap-4"></div>
       </div>
+      </div>
     </div>
 
+    <div class="appSection" data-role="admin" data-section="complaints">
      <div id="adminComplaintsBox" class="mt-6 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4 hidden">
   <div class="flex items-center justify-between gap-3">
     <div>
@@ -833,7 +858,10 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
   </div>
   <div id="adminComplaintsList" class="mt-4 space-y-4"></div>
 </div>
+</div>
 
+
+<div class="appSection" data-role="admin" data-section="users">
 <!-- Admin Users Management -->
 <div id="adminUsersBox" class="mt-6 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4 hidden overflow-hidden">
   <div class="flex flex-wrap items-start justify-between gap-3">
@@ -946,7 +974,9 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
     
   </div>
 </div>
+</div>
 
+          
 <!-- Request Profile Update -->
 <div id="profileUpdateBox" class="mt-4 hidden rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
   <div class="flex items-center justify-between gap-3">
@@ -1064,6 +1094,8 @@ class="mt-4 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
             تسجيل خروج
           </button>
 
+          
+<div class="appSection" data-role="rider" data-section="complaints">
  <!-- Complaints Box -->
 <div id="complaintsBox" class="mt-6 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4">
   <div class="flex items-center justify-between gap-3">
@@ -1160,6 +1192,7 @@ class="mt-4 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
   <div class="mt-1 text-xs text-slate-400">تابع حالة الشكاوى المرسلة.</div>
   <div id="myComplaintsList" class="mt-4 space-y-3"></div>
 </div>
+ </div>
           
         </div>
 
