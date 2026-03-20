@@ -722,22 +722,7 @@ function watchAdminComplaints() {
   });
 }
 
-document.getElementById("submitComplaintBtn")?.addEventListener("click", async () => {
-  const user = auth.currentUser;
-  if (!user) return;
 
-  try {
-    const userSnap = await getDoc(doc(db, "users", user.uid));
-    if (!userSnap.exists()) return;
-
-    const role = userSnap.data().role || "rider";
-    await submitComplaint(user.uid, role);
-  } catch (e) {
-    console.error(e);
-    const statusEl = document.getElementById("complaintFormStatus");
-    if (statusEl) statusEl.textContent = "فشل إرسال الشكوى. حاول مرة أخرى.";
-  }
-});
 
 // ✅ Auth state
 onAuthStateChanged(auth, async (user) => {
