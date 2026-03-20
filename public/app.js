@@ -1436,8 +1436,20 @@ function showAppSection(role, section) {
 
   hideAllAppSections();
 
-  document.querySelectorAll(`.appSection[data-role="${role}"][data-section="${section}"]`).forEach((el) => {
-    el.classList.add("isActive");
+    document.querySelectorAll(".appSection").forEach((el) => {
+    const elRole = el.getAttribute("data-role");
+    const elSection = el.getAttribute("data-section");
+    const sharedRoles = (el.getAttribute("data-shared-roles") || "")
+      .split(",")
+      .map(x => x.trim())
+      .filter(Boolean);
+
+    const directMatch = elRole === role && elSection === section;
+    const sharedMatch = elSection === section && sharedRoles.includes(role);
+
+    if (directMatch || sharedMatch) {
+      el.classList.add("isActive");
+    }
   });
 
   document.querySelectorAll(".appNavBtn").forEach((btn) => {
