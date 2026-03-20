@@ -1403,6 +1403,40 @@ onAuthStateChanged(auth, async (user) => {
     const snap = await getDoc(ref);
     const profile = snap.exists() ? snap.data() : { name: user.email, role: "rider" };
 
+        try {
+      const patch = {};
+
+      if (profile.accountStatus === undefined) patch.accountStatus = "active";
+      if (profile.accountStatusReason === undefined) patch.accountStatusReason = "";
+      if (profile.adminNote === undefined) patch.adminNote = "";
+      if (profile.activeTripId === undefined) patch.activeTripId = null;
+      if (profile.tripsCount === undefined) patch.tripsCount = 0;
+      if (profile.complaintsOpenCount === undefined) patch.complaintsOpenCount = 0;
+      if (profile.lastSeenAt === undefined) patch.lastSeenAt = serverTimestamp();
+
+      if ((profile.role || "") === "driver") {
+        if (profile.verificationStatus === undefined) patch.verificationStatus = "not_submitted";
+        if (profile.carModel === undefined) patch.carModel = "";
+        if (profile.carColor === undefined) patch.carColor = "";
+        if (profile.carPlate === undefined) patch.carPlate = "";
+      }
+
+      if (Object.keys(patch).length) {
+        await updateDoc(doc(db, "users", user.uid), patch);
+        Object.assign(profile, patch);
+      }
+    } catch (e) {
+      console.error("user patch error:", e);
+    }
+
+        try {
+      await updateDoc(doc(db, "users", user.uid), {
+        lastSeenAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.error("lastSeenAt update error:", e);
+    }
+    
     userLabel.textContent = profile.name || user.email;
     roleLabel.textContent = profile.role || "rider";
     uidLabel.textContent = user.uid;
