@@ -519,6 +519,18 @@ async function submitComplaint(uid, role) {
     updatedAt: serverTimestamp()
   });
 
+  try {
+  const userRef = doc(db, "users", uid);
+  const userSnap = await getDoc(userRef);
+  const currentOpenComplaints = userSnap.exists() ? Number(userSnap.data().complaintsOpenCount || 0) : 0;
+
+  await updateDoc(userRef, {
+    complaintsOpenCount: currentOpenComplaints + 1
+  });
+} catch (e) {
+  console.error("update complaintsOpenCount error:", e);
+}
+  
   if (statusEl) statusEl.textContent = "تم إرسال الشكوى بنجاح ✅";
   resetComplaintForm();
   document.getElementById("complaintFormWrap")?.classList.add("hidden");
@@ -756,11 +768,42 @@ function watchAdminComplaints() {
         const adminNote = noteEl?.value?.trim() || "";
 
         try {
-          await updateDoc(doc(db, "complaints", id), {
-            status,
-            adminNote,
-            updatedAt: serverTimestamp()
-          });
+          const complaintRef = doc(db, "complaints", id);
+const complaintSnap = await getDoc(complaintRef);
+
+let oldStatus = "";
+let complaintUid = "";
+
+if (complaintSnap.exists()) {
+  oldStatus = complaintSnap.data().status || "";
+  complaintUid = complaintSnap.data().uid || "";
+}
+
+await updateDoc(complaintRef, {
+  status,
+  adminNote,
+  updatedAt: serverTimestamp()
+});
+
+try {
+  const wasOpen = ["new", "under_review"].includes(oldStatus);
+  const nowClosed = ["resolved", "unresolved"].includes(status);
+
+  if (wasOpen && nowClosed && complaintUid) {
+    const userRef = doc(db, "users", complaintUid);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      const currentOpenComplaints = Number(userSnap.data().complaintsOpenCount || 0);
+
+      await updateDoc(userRef, {
+        complaintsOpenCount: Math.max(0, currentOpenComplaints - 1)
+      });
+    }
+  }
+} catch (e) {
+  console.error("decrease complaintsOpenCount error:", e);
+}
           showAlert("تم تحديث حالة الشكوى ✅", "success");
         } catch (e) {
           console.error(e);
@@ -1122,6 +1165,17 @@ async function openAdminUserDetails(userId) {
 }
 
 function bindAdminUsersActions() {
+
+ document.querySelectorAll(".adminViewUserTripsBtn").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const userId = btn.getAttribute("data-user-id");
+    const role = btn.getAttribute("data-user-role");
+    if (!userId || !role) return;
+
+    await openAdminUserTrips(userId, role);
+  });
+});
+  
   document.querySelectorAll(".adminViewUserBtn").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const userId = btn.getAttribute("data-user-id");
@@ -1218,6 +1272,10 @@ function initAdminUsersControls() {
     });
   });
 
+document.getElementById("closeAdminUserTripsModalBtn")?.addEventListener("click", () => {
+  document.getElementById("adminUserTripsModal")?.classList.add("hidden");
+});
+  
   document.getElementById("refreshAdminUsersBtn")?.addEventListener("click", async () => {
     adminUsersCurrentPage = 1;
     await fetchAdminUsersList();
@@ -1275,6 +1333,61 @@ async function initAdminUsersManagement() {
   }
 
   await fetchAdminUsersList();
+}
+
+async function openAdminUserTrips(userId, role) {
+  const modal = document.getElementById("adminUserTripsModal");
+  const content = document.getElementById("adminUserTripsContent");
+  if (!modal || !content || !userId || !role) return;
+
+  modal.classList.remove("hidden");
+  content.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل الرحلات...</div>`;
+
+  try {
+    const field = role === "driver" ? "driverId" : "riderId";
+
+    const q = query(
+      collection(db, "trips"),
+      where(field, "==", userId),
+      orderBy("createdAt", "desc"),
+      limit(20)
+    );
+
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      content.innerHTML = `<div class="text-xs text-slate-400">لا توجد رحلات لهذا المستخدم.</div>`;
+      return;
+    }
+
+    content.innerHTML = snap.docs.map((docSnap) => {
+      const t = docSnap.data();
+      return `
+        <div class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+          <div class="flex flex-wrap items-center gap-2">
+            ${statusBadge(t.status || "pending")}
+          </div>
+
+          <div class="mt-3 text-sm font-semibold text-white break-all">
+            ${escapeHtml(t.pickup || "—")} → ${escapeHtml(t.dropoff || "—")}
+          </div>
+
+          <div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-300">
+            <span>السعر: ${Number(t.price || 0)} جنيه</span>
+            <span>الركاب: ${Number(t.passengerCount || 1)}</span>
+            <span>النوع: ${escapeHtml(t.tripType || "—")}</span>
+          </div>
+
+          <div class="mt-2 text-[11px] text-slate-400 break-all">
+            Trip ID: ${docSnap.id}
+          </div>
+        </div>
+      `;
+    }).join("");
+  } catch (e) {
+    console.error("openAdminUserTrips error:", e);
+    content.innerHTML = `<div class="text-xs text-rose-300">تعذر تحميل الرحلات.</div>`;
+  }
 }
 
 // ✅ Auth state
@@ -1551,6 +1664,7 @@ const dropoffLat = dropoffLatLng?.lat ?? null;
 const dropoffLng = dropoffLatLng?.lng ?? null;
   
   const newTripRef = await addDoc(collection(db, "trips"), {
+    
   riderId,
   driverId: null,
   pickup: pickupDisplay,
@@ -1579,6 +1693,19 @@ kmEstimated,
     priceBreakdown: pricing
   });
 
+try {
+  const riderUserRef = doc(db, "users", riderId);
+  const riderSnap = await getDoc(riderUserRef);
+  const currentTripsCount = riderSnap.exists() ? Number(riderSnap.data().tripsCount || 0) : 0;
+
+  await updateDoc(riderUserRef, {
+    tripsCount: currentTripsCount + 1,
+    activeTripId: newTripRef.id
+  });
+} catch (e) {
+  console.error("update rider tripsCount error:", e);
+}
+  
   await updateDoc(doc(db, "users", riderId), {
     activeTripId: newTripRef.id
   });
@@ -1932,6 +2059,18 @@ async function acceptTrip(driverId, tripId) {
     activeTripId: tripId
   });
 
+try {
+  const driverUserRef = doc(db, "users", driverId);
+  const driverSnap = await getDoc(driverUserRef);
+  const currentTripsCount = driverSnap.exists() ? Number(driverSnap.data().tripsCount || 0) : 0;
+
+  await updateDoc(driverUserRef, {
+    tripsCount: currentTripsCount + 1
+  });
+} catch (e) {
+  console.error("update driver tripsCount error:", e);
+}
+  
   if (riderId) {
     await updateDoc(doc(db, "users", riderId), {
       activeTripId: tripId
