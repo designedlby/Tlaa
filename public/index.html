@@ -1243,6 +1243,33 @@ class="mt-4 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
     </div>
   </div>
 </div>
+
+<div id="permissionsModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
+  <div class="bg-[#111] rounded-2xl p-5 w-[90%] max-w-md text-white ring-1 ring-white/10">
+
+    <div class="text-lg font-bold mb-2">تشغيل التطبيق بشكل كامل 🚀</div>
+    
+    <div class="text-sm text-slate-300 mb-4">
+      عشان التطبيق يشتغل بكفاءة ويوصلك السائق بسرعة، محتاجين نفعّل بعض الصلاحيات البسيطة 👇
+    </div>
+
+    <ul class="text-xs text-slate-400 space-y-1 mb-4">
+      <li>📍 تحديد الموقع (لإظهار الرحلات القريبة)</li>
+      <li>🔔 الإشعارات (لتحديث حالة الرحلة)</li>
+    </ul>
+
+    <button id="enablePermissionsBtn"
+      class="w-full rounded-xl bg-indigo-500 hover:bg-indigo-600 py-2 text-sm font-semibold">
+      تفعيل الآن
+    </button>
+
+    <button id="skipPermissionsBtn"
+      class="w-full mt-2 text-xs text-slate-400 hover:text-white">
+      لاحقًا
+    </button>
+
+  </div>
+</div>
   
   <script type="module" src="app.js"></script>
 </body>
