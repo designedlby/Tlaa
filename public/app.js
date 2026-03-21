@@ -1414,22 +1414,22 @@ async function openAdminUserTrips(userId, role) {
 
 const APP_NAV_CONFIG = {
   rider: [
-    { key: "request", label: "طلب رحلة", icon: "🚕" },
-    { key: "my_trip", label: "رحلتي", icon: "🧾" },
-    { key: "complaints", label: "الشكاوى", icon: "🛟" },
-    { key: "profile", label: "الحساب", icon: "👤" }
+    { key: "request", label: "طلب رحلة", icon: "✦" },
+    { key: "my_trip", label: "رحلتي", icon: "◷" },
+    { key: "complaints", label: "الشكاوى", icon: "◎" },
+    { key: "profile", label: "الحساب", icon: "◉" }
   ],
   driver: [
-    { key: "requests", label: "الطلبات", icon: "📥" },
-    { key: "current_trip", label: "رحلتي", icon: "🧾" },
-    { key: "complaints", label: "الشكاوى", icon: "🛟" },
-    { key: "profile", label: "الحساب", icon: "👤" }
+    { key: "requests", label: "الطلبات", icon: "✦" },
+    { key: "current_trip", label: "رحلتي", icon: "◷" },
+    { key: "complaints", label: "الشكاوى", icon: "◎" },
+    { key: "profile", label: "الحساب", icon: "◉" }
   ],
   admin: [
-    { key: "verifications", label: "التوثيق", icon: "✅" },
-    { key: "profile_updates", label: "التعديلات", icon: "📝" },
-    { key: "complaints", label: "الشكاوى", icon: "🛟" },
-    { key: "users", label: "المستخدمون", icon: "👥" }
+    { key: "verifications", label: "التوثيق", icon: "✓" },
+    { key: "profile_updates", label: "التعديلات", icon: "✎" },
+    { key: "complaints", label: "الشكاوى", icon: "◎" },
+    { key: "users", label: "المستخدمون", icon: "◈" }
   ]
 };
 
