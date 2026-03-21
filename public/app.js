@@ -1455,6 +1455,8 @@ function showAppSection(role, section) {
 
   hideAllAppSections();
 
+  const matchedSections = [];
+
   document.querySelectorAll(".appSection").forEach((el) => {
     const elRole = el.getAttribute("data-role");
     const elSection = el.getAttribute("data-section");
@@ -1468,6 +1470,7 @@ function showAppSection(role, section) {
 
     if (directMatch || sharedMatch) {
       el.classList.add("isActive");
+      matchedSections.push(el);
     }
   });
 
@@ -1480,6 +1483,18 @@ function showAppSection(role, section) {
     const isMatch = btn.getAttribute("data-role") === role && btn.getAttribute("data-section") === section;
     btn.classList.toggle("isActive", isMatch);
   });
+
+  // ✅ انزل للمحتوى الظاهر الجديد
+  if (matchedSections.length) {
+    const firstSection = matchedSections[0];
+
+    setTimeout(() => {
+      firstSection.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 40);
+  }
 }
 
 function renderAppNav(role) {
@@ -1509,26 +1524,26 @@ function renderAppNav(role) {
     ? "تنقل السائق"
     : "لوحة الإدارة";
 
-  nav.innerHTML = items.map((item) => `
+    nav.innerHTML = items.map((item) => `
     <button
       class="appNavBtn ${currentAppRole === role && currentAppSection === item.key ? "isActive" : ""}"
       data-role="${role}"
       data-section="${item.key}">
-      <span class="text-base leading-none">${item.icon || "•"}</span>
+      <span class="text-[15px] leading-none">${item.icon || "•"}</span>
       <span>${item.label}</span>
     </button>
   `).join("");
 
-  bottomNav.innerHTML = items.map((item) => `
+    bottomNav.innerHTML = items.map((item) => `
     <button
       class="appBottomNavBtn ${currentAppRole === role && currentAppSection === item.key ? "isActive" : ""}"
       data-role="${role}"
       data-section="${item.key}">
-      <span class="text-base leading-none">${item.icon || "•"}</span>
-      <span class="text-[11px] font-semibold">${item.label}</span>
+      <span class="navIcon">${item.icon || "•"}</span>
+      <span class="navLabel">${item.label}</span>
     </button>
   `).join("");
-
+  
   nav.querySelectorAll(".appNavBtn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const targetRole = btn.getAttribute("data-role");
