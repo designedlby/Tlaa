@@ -2064,8 +2064,13 @@ watchMyComplaints(user.uid);
 if (profile.role === "admin") {
     watchAdminComplaints();
   await initAdminUsersManagement();
+  
   await renderPricingSettingsForm();
-document.getElementById("adminPricingBox")?.classList.remove("hidden");
+  document.getElementById("adminPricingBox")?.classList.remove("hidden");
+  document.getElementById("savePricingSettingsBtn")?.addEventListener("click", async () => {
+    await savePricingSettingsFromAdmin();
+  });
+  
   adminBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
   driverBox?.classList.add("hidden");
