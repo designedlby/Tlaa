@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <link rel="icon" href="data:,">
   <title>طلعة | تمناية</title>
 
@@ -16,86 +16,111 @@
 <style>
   .appSection {
     display: none;
+    scroll-margin-top: 96px;
   }
 
   .appSection.isActive {
     display: block;
+    animation: sectionFade .22s ease;
+  }
+
+  @keyframes sectionFade {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .appNavSurface {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow:
+      0 10px 30px rgba(0,0,0,.22),
+      inset 0 1px 0 rgba(255,255,255,.04);
+    backdrop-filter: blur(18px);
   }
 
   .appNavBtn {
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(255,255,255,.06);
-    color: white;
-    border-radius: 14px;
-    padding: 10px 14px;
-    font-size: 13px;
-    font-weight: 600;
-    transition: .2s ease;
-    white-space: nowrap;
-  }
-
-  .appNavBtn:hover {
-    background: rgba(255,255,255,.12);
-  }
-
-  .appNavBtn.isActive {
-    background: rgba(99,102,241,.95);
-    border-color: rgba(99,102,241,.95);
-  }
-
-  .appSection {
-    display: none;
-  }
-
-  .appSection.isActive {
-    display: block;
-  }
-
-  .appNavBtn {
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(255,255,255,.06);
-    color: white;
-    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.04);
+    color: #dbe3f3;
+    border-radius: 18px;
     padding: 10px 14px;
     font-size: 13px;
     font-weight: 700;
-    transition: .2s ease;
+    transition: .18s ease;
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    min-height: 42px;
   }
 
   .appNavBtn:hover {
-    background: rgba(255,255,255,.12);
+    background: rgba(255,255,255,.08);
+    color: white;
+    transform: translateY(-1px);
   }
 
   .appNavBtn.isActive {
-    background: rgba(99,102,241,.95);
-    border-color: rgba(99,102,241,.95);
-    box-shadow: 0 10px 30px rgba(99,102,241,.18);
+    background: linear-gradient(135deg, rgba(99,102,241,.96), rgba(129,140,248,.92));
+    color: white;
+    border-color: rgba(129,140,248,.85);
+    box-shadow: 0 8px 22px rgba(99,102,241,.28);
   }
 
   .appBottomNavBtn {
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(255,255,255,.04);
-    color: #e5e7eb;
-    border-radius: 16px;
-    min-height: 58px;
+    border: 1px solid rgba(255,255,255,.07);
+    background: rgba(255,255,255,.035);
+    color: #dbe3f3;
+    border-radius: 22px;
+    min-height: 64px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    transition: .2s ease;
-    padding: 6px;
+    gap: 6px;
+    transition: .18s ease;
+    padding: 8px 6px;
+  }
+
+  .appBottomNavBtn:hover {
+    background: rgba(255,255,255,.07);
   }
 
   .appBottomNavBtn.isActive {
-    background: rgba(99,102,241,.95);
+    background: linear-gradient(135deg, rgba(99,102,241,.96), rgba(129,140,248,.92));
     color: white;
-    border-color: rgba(99,102,241,.95);
-    box-shadow: 0 10px 30px rgba(99,102,241,.18);
+    border-color: rgba(129,140,248,.9);
+    box-shadow: 0 10px 28px rgba(99,102,241,.32);
+  }
+
+  .appBottomNavBtn .navIcon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .appBottomNavBtn .navLabel {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  @media (max-width: 767px) {
+    #appNavWrap {
+      display: none !important;
+    }
+  }
+
+  @media (min-width: 768px) {
+    #appBottomNavWrap {
+      display: none !important;
+    }
   }
 </style>
   
@@ -108,7 +133,7 @@
     <div class="absolute -bottom-40 left-0 h-96 w-96 rounded-full bg-fuchsia-500/20 blur-3xl"></div>
   </div>
 
-  <main class="relative mx-auto max-w-6xl px-4 py-10">
+  <main class="relative mx-auto max-w-6xl px-4 py-10 overflow-x-hidden">
     <!-- Header -->
     <header class="flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
@@ -169,15 +194,16 @@
       <!-- Right: auth card -->
       <div class="rounded-3xl bg-white/5 ring-1 ring-white/10 p-6 lg:p-8">
       <!-- App Navigation -->
-<div id="appNavWrap" class="hidden sticky top-0 z-30 mb-4 rounded-3xl bg-slate-950/90 backdrop-blur ring-1 ring-white/10 p-3">
-  <div id="appNavTitle" class="mb-3 text-sm font-semibold text-white">التنقل</div>
-
-  <div id="appNav" class="flex gap-2 overflow-x-auto whitespace-nowrap pb-1"></div>
+<div id="appNavWrap" class="hidden sticky top-0 z-30 mb-4">
+  <div class="appNavSurface rounded-3xl px-3 py-3">
+    <div id="appNavTitle" class="mb-3 text-sm font-semibold text-white/90">التنقل</div>
+    <div id="appNav" class="flex gap-2 overflow-x-auto whitespace-nowrap pb-1"></div>
+  </div>
 </div>
 
 <!-- Mobile Bottom Navigation -->
 <div id="appBottomNavWrap" class="hidden fixed bottom-3 left-3 right-3 z-40 md:hidden">
-  <div class="rounded-3xl bg-slate-950/95 backdrop-blur ring-1 ring-white/10 px-2 py-2 shadow-2xl">
+  <div class="appNavSurface rounded-[28px] px-2 py-2">
     <div id="appBottomNav" class="grid grid-cols-4 gap-2"></div>
   </div>
 </div>
@@ -302,11 +328,11 @@
       
         
         <!-- App box after login -->
-        <div id="appBox" class="mt-6 hidden pb-24 md:pb-0">
+        <div id="appBox" class="hidden w-full max-w-full overflow-x-hidden pb-28 md:pb-0">
 
           <div class="rounded-3xl bg-black/20 ring-1 ring-white/10 p-4 shadow-lg">
   <div class="flex flex-wrap items-start justify-between gap-3">
-    <div class="min-w-0">
+    <div class="w-full-0">
       <p class="text-sm text-white">
         أهلاً <span id="userLabel" class="font-semibold"></span> 👋
       </p>
@@ -711,7 +737,7 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
         <div id="verificationStateDot" class="h-3 w-3 rounded-full bg-yellow-400"></div>
       </div>
 
-      <div class="min-w-0 flex-1">
+      <div class="w-full-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
           <p id="verificationStateTitle"
             class="text-sm font-semibold text-white"></p>
@@ -1103,7 +1129,7 @@ class="mt-4 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
         <div id="profileUpdateStateDot" class="h-3 w-3 rounded-full bg-yellow-400"></div>
       </div>
 
-      <div class="min-w-0 flex-1">
+      <div class="w-full-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
           <p id="profileUpdateStateTitle" class="text-sm font-semibold text-white"></p>
 
