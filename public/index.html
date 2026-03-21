@@ -1073,6 +1073,33 @@ class="mt-6 hidden overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900/
   </div>
 </div>
 
+  <div id="adminPricingBox" class="mt-6 rounded-3xl bg-white/5 ring-1 ring-white/10 p-4 hidden">
+  <div class="text-sm font-semibold text-white">إعدادات التسعير</div>
+  <div class="mt-1 text-xs text-slate-400">تحكم في أسعار الرحلات بدون تعديل الكود.</div>
+
+  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+    <input id="pricingBaseFare" class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white" placeholder="فتح العداد">
+    <input id="pricingPerKm" class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white" placeholder="سعر الكيلو">
+    <input id="pricingMinimumFare" class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white" placeholder="الحد الأدنى">
+    <input id="pricingWaitingPerMinute" class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white" placeholder="سعر دقيقة الانتظار">
+    <input id="pricingExtraPassengerFee" class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white" placeholder="رسوم الراكب الإضافي">
+    <input id="pricingLuggageFee" class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white" placeholder="رسوم الشنط">
+    <input id="pricingCargoFee" class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white" placeholder="رسوم الحمولة">
+    <input id="pricingReturnSameDayFee" class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white" placeholder="رسوم عودة نفس اليوم">
+    <input id="pricingRoundTripMultiplier" class="rounded-2xl bg-black/20 ring-1 ring-white/10 px-4 py-3 text-sm text-white" placeholder="معامل ذهاب وعودة">
+  </div>
+
+  <div class="mt-4 flex flex-wrap gap-3">
+    <button id="savePricingSettingsBtn"
+      class="rounded-2xl bg-indigo-500/90 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-3">
+      حفظ الأسعار
+    </button>
+  </div>
+
+  <div id="pricingSettingsStatus" class="mt-3 text-xs text-slate-300"></div>
+</div>
+
+  
 <!-- Admin User Details Modal -->
 <div id="adminUserDetailsModal" class="hidden fixed inset-0 z-50 bg-black/70 p-4">
   <div class="mx-auto max-w-3xl rounded-3xl bg-slate-950 ring-1 ring-white/10 p-4 max-h-[90vh] overflow-y-auto">
