@@ -4339,7 +4339,6 @@ function toggleTripTypeFields() {
     differentDaysBox?.classList.remove("hidden");
   }
 
- const routeMetrics = await getRoadRouteMetrics(pickupLatLng, dropoffLatLng);
 const km = Number(routeMetrics.km || 0);
 const minutes = Number(routeMetrics.minutes || 0);
 
