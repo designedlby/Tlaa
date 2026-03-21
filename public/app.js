@@ -221,7 +221,13 @@ loginBtn?.addEventListener("click", async () => {
 
 // ✅ Logout
 logoutBtn?.addEventListener("click", async () => {
-  await signOut(auth);
+  try {
+    cleanupRealtimeWatchers();
+    await signOut(auth);
+  } catch (e) {
+    console.error(e);
+    showAlert("فشل تسجيل الخروج.", "error");
+  }
   setTab("login");
 });
 
@@ -618,7 +624,10 @@ function watchMyComplaints(uid) {
   const list = document.getElementById("myComplaintsList");
   if (!list) return;
 
-  if (unsubscribeMyComplaints) unsubscribeMyComplaints();
+  if (unsubscribeMyComplaints) {
+  unsubscribeMyComplaints();
+  unsubscribeMyComplaints = null;
+}
 
   list.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل الشكاوى...</div>`;
 
@@ -639,9 +648,10 @@ function watchMyComplaints(uid) {
       return renderComplaintCard(docSnap.id, docSnap.data());
     }).join("");
   }, (err) => {
-    console.error("watchMyComplaints error:", err);
-    list.innerHTML = `<div class="text-xs text-rose-300">تعذر تحميل الشكاوى.</div>`;
-  });
+  if (!auth.currentUser) return;
+  console.error("watchMyComplaints error:", err);
+  list.innerHTML = `<div class="text-xs text-rose-300">تعذر تحميل الشكاوى.</div>`;
+});
 }
 
 function renderAdminComplaintCard(id, c) {
@@ -737,8 +747,14 @@ function renderAdminComplaintCard(id, c) {
 function watchAdminComplaints() {
   const box = document.getElementById("adminComplaintsBox");
   const list = document.getElementById("adminComplaintsList");
+  
   if (!box || !list) return;
 
+  if (unsubscribeAdminComplaints) {
+    unsubscribeAdminComplaints();
+    unsubscribeAdminComplaints = null;
+  }
+  
   box.classList.remove("hidden");
   list.innerHTML = `<div class="text-xs text-slate-400">جارٍ تحميل الشكاوى...</div>`;
 
@@ -748,7 +764,7 @@ function watchAdminComplaints() {
     limit(100)
   );
 
-  onSnapshot(q, (snap) => {
+  unsubscribeAdminComplaints = onSnapshot(q, (snap) => {
     if (snap.empty) {
       list.innerHTML = `<div class="text-xs text-slate-400">لا توجد شكاوى.</div>`;
       return;
@@ -812,9 +828,9 @@ try {
       });
     });
   }, (err) => {
-    console.error("watchAdminComplaints error:", err);
-    list.innerHTML = `<div class="text-xs text-rose-300">تعذر تحميل الشكاوى.</div>`;
-  });
+  if (!auth.currentUser) return;
+  console.error("watchAdminComplaints error:", err);
+});
 }
 
 function getAccountStatusBadge(status) {
@@ -1519,13 +1535,84 @@ function initRoleBasedNavigation(role) {
   showAppSection(role, currentAppSection);
 }
 
+
+function cleanupRealtimeWatchers() {
+  try {
+    if (unsubscribeMyTrip) {
+      unsubscribeMyTrip();
+      unsubscribeMyTrip = null;
+    }
+  } catch (e) {
+    console.error("cleanup unsubscribeMyTrip error:", e);
+  }
+
+  try {
+    if (unsubscribeDriverTrip) {
+      unsubscribeDriverTrip();
+      unsubscribeDriverTrip = null;
+    }
+  } catch (e) {
+    console.error("cleanup unsubscribeDriverTrip error:", e);
+  }
+
+  try {
+    if (unsubscribeMyComplaints) {
+      unsubscribeMyComplaints();
+      unsubscribeMyComplaints = null;
+    }
+  } catch (e) {
+    console.error("cleanup unsubscribeMyComplaints error:", e);
+  }
+
+  try {
+    if (unsubscribeAdminComplaints) {
+      unsubscribeAdminComplaints();
+      unsubscribeAdminComplaints = null;
+    }
+  } catch (e) {
+    console.error("cleanup unsubscribeAdminComplaints error:", e);
+  }
+
+  try {
+    if (unsubscribeRiderLiveLocation) {
+      unsubscribeRiderLiveLocation();
+      unsubscribeRiderLiveLocation = null;
+    }
+  } catch (e) {
+    console.error("cleanup unsubscribeRiderLiveLocation error:", e);
+  }
+
+  try {
+    stopDriverLiveLocationSharingRTDB?.();
+  } catch (e) {
+    console.error("cleanup stopDriverLiveLocationSharingRTDB error:", e);
+  }
+
+  try {
+    clearRiderLiveTrackingUI?.();
+  } catch (e) {
+    console.error("cleanup clearRiderLiveTrackingUI error:", e);
+  }
+
+  try {
+    clearDriverLiveLocationRTDB?.();
+  } catch (e) {
+    console.error("cleanup clearDriverLiveLocationRTDB error:", e);
+  }
+}
+
+
+
 // ✅ Auth state
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
+  cleanupRealtimeWatchers();
   appBox?.classList.add("hidden");
   initRoleBasedNavigation("guest");
   return;
 }
+
+  cleanupRealtimeWatchers();
   
   try {
     const ref = doc(db, "users", user.uid);
@@ -4466,6 +4553,8 @@ let riderLiveDriverMarker = null;
 let riderLivePickupMarker = null;
 let riderLiveDropoffMarker = null;
 let lastTrackedTripId = null;
+
+let unsubscribeAdminComplaints = null;
 
 let unsubscribeRiderLiveLocation = null;
 
