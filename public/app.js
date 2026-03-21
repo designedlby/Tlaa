@@ -2053,7 +2053,6 @@ const dropoff =
 
  const routeMetrics = await getRoadRouteMetrics(pickupLatLng, dropoffLatLng);
 
-const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
 const hasLuggage = !!document.getElementById("hasLuggage")?.checked;
 const hasCargo = !!document.getElementById("hasCargo")?.checked;
 const isRoundTrip = !!document.getElementById("isRoundTrip")?.checked;
