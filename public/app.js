@@ -2306,8 +2306,6 @@ const pickupLng = pickupLatLng?.lng ?? null;
 const dropoffLat = dropoffLatLng?.lat ?? null;
 const dropoffLng = dropoffLatLng?.lng ?? null;
 
-  const routeMetrics = await getRoadRouteMetrics(pickupLatLng, dropoffLatLng);
-
 const tripOptions = getTripOptionsForPricing();
 
 const priceBreakdown = calculateTripPriceBreakdown({
