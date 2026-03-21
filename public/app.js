@@ -2316,7 +2316,6 @@ const priceBreakdown = calculateTripPriceBreakdown({
   hasSameDayReturn: tripOptions.hasSameDayReturn
 });
 
-const kmEstimated = Number(routeMetrics.km || 0);
   
   const newTripRef = await addDoc(collection(db, "trips"), {
 
