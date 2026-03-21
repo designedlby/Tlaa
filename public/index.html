@@ -42,6 +42,61 @@
     background: rgba(99,102,241,.95);
     border-color: rgba(99,102,241,.95);
   }
+
+  .appSection {
+    display: none;
+  }
+
+  .appSection.isActive {
+    display: block;
+  }
+
+  .appNavBtn {
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.06);
+    color: white;
+    border-radius: 16px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    transition: .2s ease;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .appNavBtn:hover {
+    background: rgba(255,255,255,.12);
+  }
+
+  .appNavBtn.isActive {
+    background: rgba(99,102,241,.95);
+    border-color: rgba(99,102,241,.95);
+    box-shadow: 0 10px 30px rgba(99,102,241,.18);
+  }
+
+  .appBottomNavBtn {
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.04);
+    color: #e5e7eb;
+    border-radius: 16px;
+    min-height: 58px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: .2s ease;
+    padding: 6px;
+  }
+
+  .appBottomNavBtn.isActive {
+    background: rgba(99,102,241,.95);
+    color: white;
+    border-color: rgba(99,102,241,.95);
+    box-shadow: 0 10px 30px rgba(99,102,241,.18);
+  }
 </style>
   
 </head>
@@ -118,6 +173,13 @@
   <div id="appNavTitle" class="mb-3 text-sm font-semibold text-white">التنقل</div>
 
   <div id="appNav" class="flex gap-2 overflow-x-auto whitespace-nowrap pb-1"></div>
+</div>
+
+<!-- Mobile Bottom Navigation -->
+<div id="appBottomNavWrap" class="hidden fixed bottom-3 left-3 right-3 z-40 md:hidden">
+  <div class="rounded-3xl bg-slate-950/95 backdrop-blur ring-1 ring-white/10 px-2 py-2 shadow-2xl">
+    <div id="appBottomNav" class="grid grid-cols-4 gap-2"></div>
+  </div>
 </div>
         
         <!-- Tabs -->
@@ -240,7 +302,7 @@
       
         
         <!-- App box after login -->
-        <div id="appBox" class="mt-6 hidden">
+        <div id="appBox" class="mt-6 hidden pb-24 md:pb-0">
 
           <div class="rounded-3xl bg-black/20 ring-1 ring-white/10 p-4 shadow-lg">
   <div class="flex flex-wrap items-start justify-between gap-3">
