@@ -2220,8 +2220,6 @@ const pickupLng = pickupLatLng?.lng ?? null;
 const dropoffLat = dropoffLatLng?.lat ?? null;
 const dropoffLng = dropoffLatLng?.lng ?? null;
 
-const tripOptions = getTripOptionsForPricing();
-
 const routeMetrics = await getRoadRouteMetrics(
   window.pickupLatLng,
   window.dropoffLatLng
