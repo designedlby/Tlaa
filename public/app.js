@@ -2220,11 +2220,6 @@ const pickupLng = pickupLatLng?.lng ?? null;
 const dropoffLat = dropoffLatLng?.lat ?? null;
 const dropoffLng = dropoffLatLng?.lng ?? null;
 
-const routeMetrics = await getRoadRouteMetrics(
-  window.pickupLatLng,
-  window.dropoffLatLng
-);
-
   
   const newTripRef = await addDoc(collection(db, "trips"), {
 
