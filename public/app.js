@@ -1288,6 +1288,11 @@ function initAdminUsersControls() {
     });
   });
 
+document.getElementById("savePricingSettingsBtn")?.addEventListener("click", async () => {
+  await savePricingSettingsFromAdmin();
+});
+
+  
 document.getElementById("closeAdminUserTripsModalBtn")?.addEventListener("click", () => {
   document.getElementById("adminUserTripsModal")?.classList.add("hidden");
 });
@@ -1696,6 +1701,51 @@ function cleanupRealtimeWatchers() {
 }
 
 
+async function renderPricingSettingsForm() {
+  await loadPricingSettings();
+
+  document.getElementById("pricingBaseFare").value = pricingSettings.baseFare ?? 0;
+  document.getElementById("pricingPerKm").value = pricingSettings.pricePerKm ?? 0;
+  document.getElementById("pricingMinimumFare").value = pricingSettings.minimumFare ?? 0;
+  document.getElementById("pricingWaitingPerMinute").value = pricingSettings.waitingPerMinute ?? 0;
+  document.getElementById("pricingExtraPassengerFee").value = pricingSettings.extraPassengerFee ?? 0;
+  document.getElementById("pricingLuggageFee").value = pricingSettings.luggageFee ?? 0;
+  document.getElementById("pricingCargoFee").value = pricingSettings.cargoFee ?? 0;
+  document.getElementById("pricingReturnSameDayFee").value = pricingSettings.returnSameDayFee ?? 0;
+  document.getElementById("pricingRoundTripMultiplier").value = pricingSettings.roundTripMultiplier ?? 1;
+}
+
+async function savePricingSettingsFromAdmin() {
+  const statusEl = document.getElementById("pricingSettingsStatus");
+
+  const nextSettings = {
+    baseFare: Number(document.getElementById("pricingBaseFare")?.value || 0),
+    pricePerKm: Number(document.getElementById("pricingPerKm")?.value || 0),
+    minimumFare: Number(document.getElementById("pricingMinimumFare")?.value || 0),
+    waitingPerMinute: Number(document.getElementById("pricingWaitingPerMinute")?.value || 0),
+    extraPassengerFee: Number(document.getElementById("pricingExtraPassengerFee")?.value || 0),
+    luggageFee: Number(document.getElementById("pricingLuggageFee")?.value || 0),
+    cargoFee: Number(document.getElementById("pricingCargoFee")?.value || 0),
+    returnSameDayFee: Number(document.getElementById("pricingReturnSameDayFee")?.value || 0),
+    roundTripMultiplier: Number(document.getElementById("pricingRoundTripMultiplier")?.value || 1)
+  };
+
+  try {
+    await setDoc(doc(db, "settings", "pricing"), nextSettings, { merge: true });
+    pricingSettings = {
+      ...pricingSettings,
+      ...nextSettings
+    };
+
+    if (statusEl) statusEl.textContent = "تم حفظ الأسعار بنجاح ✅";
+    showAlert("تم حفظ إعدادات التسعير ✅", "success");
+  } catch (e) {
+    console.error("savePricingSettingsFromAdmin error:", e);
+    if (statusEl) statusEl.textContent = "فشل حفظ الأسعار.";
+    showAlert("فشل حفظ إعدادات التسعير.", "error");
+  }
+}
+
 
 // ✅ Auth state
 onAuthStateChanged(auth, async (user) => {
@@ -1887,6 +1937,8 @@ watchMyComplaints(user.uid);
 if (profile.role === "admin") {
     watchAdminComplaints();
   await initAdminUsersManagement();
+  await renderPricingSettingsForm();
+document.getElementById("adminPricingBox")?.classList.remove("hidden");
   adminBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
   driverBox?.classList.add("hidden");
