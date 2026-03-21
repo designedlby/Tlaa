@@ -2306,8 +2306,6 @@ const pickupLng = pickupLatLng?.lng ?? null;
 const dropoffLat = dropoffLatLng?.lat ?? null;
 const dropoffLng = dropoffLatLng?.lng ?? null;
 
-const tripOptions = getTripOptionsForPricing();
-
 const priceBreakdown = calculateTripPriceBreakdown({
   km: routeMetrics.km,
   waitingMinutes: 0,
