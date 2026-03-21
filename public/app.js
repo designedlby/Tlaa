@@ -1561,6 +1561,29 @@ function renderAppNav(role) {
   });
 }
 
+async function loadPricingSettings() {
+  try {
+    const ref = doc(db, "settings", "pricing");
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      await setDoc(ref, pricingSettings, { merge: true });
+      return pricingSettings;
+    }
+
+    pricingSettings = {
+      ...pricingSettings,
+      ...snap.data()
+    };
+
+    return pricingSettings;
+  } catch (e) {
+    console.error("loadPricingSettings error:", e);
+    return pricingSettings;
+  }
+}
+
+
 function initRoleBasedNavigation(role) {
   currentAppRole = role;
 
@@ -1975,6 +1998,25 @@ const dropoff =
     return;
   }
 
+ const routeMetrics = await getRoadRouteMetrics(pickupLatLng, dropoffLatLng);
+
+const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
+const hasLuggage = !!document.getElementById("hasLuggage")?.checked;
+const hasCargo = !!document.getElementById("hasCargo")?.checked;
+const isRoundTrip = !!document.getElementById("isRoundTrip")?.checked;
+const hasSameDayReturn = !!document.getElementById("sameDayReturn")?.checked;
+
+const priceBreakdown = calculateTripPriceBreakdown({
+  km: routeMetrics.km,
+  waitingMinutes: 0,
+  passengerCount,
+  hasLuggage,
+  hasCargo,
+  isRoundTrip,
+  hasSameDayReturn
+});
+
+  
   const pickupPlace = pickupLatLng
     ? await reverseGeocode(pickupLatLng.lat, pickupLatLng.lng)
     : { shortText: pickup, fullText: pickup };
@@ -1995,6 +2037,10 @@ const dropoffLat = dropoffLatLng?.lat ?? null;
 const dropoffLng = dropoffLatLng?.lng ?? null;
   
   const newTripRef = await addDoc(collection(db, "trips"), {
+
+  kmEstimated: Number(routeMetrics.km || 0),
+durationEstimatedMinutes: Number(routeMetrics.minutes || 0),
+price: Number(priceBreakdown.finalPrice || 0),
     
   riderId,
   driverId: null,
@@ -2013,6 +2059,12 @@ kmEstimated,
     price: pricing.finalPrice,
     status: "pending",
     createdAt: serverTimestamp(),
+
+hasLuggage,
+hasCargo,
+isRoundTrip,
+hasSameDayReturn,
+
     
     passengerCount,
     luggageType,
@@ -2021,7 +2073,15 @@ kmEstimated,
     returnDate: tripType === "return_other_day" ? returnDate : "",
     tripNotes,
     returnRequestScheduled: tripType === "return_other_day",
-    priceBreakdown: pricing
+    priceBreakdown: {
+  baseFare: priceBreakdown.baseFare,
+  distanceFare: priceBreakdown.distanceFare,
+  waitingFare: priceBreakdown.waitingFare,
+  passengersFare: priceBreakdown.passengersFare,
+  luggageFare: priceBreakdown.luggageFare,
+  cargoFare: priceBreakdown.cargoFare,
+  sameDayReturnFare: priceBreakdown.sameDayReturnFare
+}
   });
 
 try {
@@ -2056,6 +2116,67 @@ function getLuggageLabel(luggageType) {
   if (luggageType === "bags") return "شنط";
   if (luggageType === "extra") return "حمولة إضافية";
   return "غير محدد";
+}
+
+function calculateTripPriceBreakdown({
+  km = 0,
+  waitingMinutes = 0,
+  passengerCount = 1,
+  hasLuggage = false,
+  hasCargo = false,
+  isRoundTrip = false,
+  hasSameDayReturn = false
+}) {
+  const s = pricingSettings || {};
+
+  const baseFare = Number(s.baseFare || 0);
+  const pricePerKm = Number(s.pricePerKm || 0);
+  const minimumFare = Number(s.minimumFare || 0);
+  const waitingPerMinute = Number(s.waitingPerMinute || 0);
+  const extraPassengerFee = Number(s.extraPassengerFee || 0);
+  const luggageFee = Number(s.luggageFee || 0);
+  const cargoFee = Number(s.cargoFee || 0);
+  const returnSameDayFee = Number(s.returnSameDayFee || 0);
+  const roundTripMultiplier = Number(s.roundTripMultiplier || 1);
+
+  const distanceFare = Number(km || 0) * pricePerKm;
+  const waitingFare = Number(waitingMinutes || 0) * waitingPerMinute;
+
+  const extraPassengers = Math.max(0, Number(passengerCount || 1) - 1);
+  const passengersFare = extraPassengers * extraPassengerFee;
+
+  const luggageFare = hasLuggage ? luggageFee : 0;
+  const cargoFareValue = hasCargo ? cargoFee : 0;
+  const sameDayReturnFare = hasSameDayReturn ? returnSameDayFee : 0;
+
+  let subtotal =
+    baseFare +
+    distanceFare +
+    waitingFare +
+    passengersFare +
+    luggageFare +
+    cargoFareValue +
+    sameDayReturnFare;
+
+  if (isRoundTrip) {
+    subtotal = subtotal * roundTripMultiplier;
+  }
+
+  const finalPrice = Math.max(minimumFare, Math.round(subtotal));
+
+  return {
+    baseFare,
+    distanceFare,
+    waitingFare,
+    passengersFare,
+    luggageFare,
+    cargoFare: cargoFareValue,
+    sameDayReturnFare,
+    km: Number(km || 0),
+    waitingMinutes: Number(waitingMinutes || 0),
+    isRoundTrip,
+    finalPrice
+  };
 }
 
 function renderDriverTripDetailsHtml(t) {
@@ -3880,6 +4001,76 @@ function roundTo(x, step) {
   return Math.round(x / step) * step;
 }
 
+async function getRoadRouteMetrics(startLatLng, endLatLng) {
+  try {
+    if (!startLatLng || !endLatLng) {
+      return {
+        km: 0,
+        minutes: 0,
+        source: "invalid"
+      };
+    }
+
+    const startLat = Number(startLatLng.lat);
+    const startLng = Number(startLatLng.lng);
+    const endLat = Number(endLatLng.lat);
+    const endLng = Number(endLatLng.lng);
+
+    if (
+      !Number.isFinite(startLat) || !Number.isFinite(startLng) ||
+      !Number.isFinite(endLat) || !Number.isFinite(endLng)
+    ) {
+      return {
+        km: 0,
+        minutes: 0,
+        source: "invalid"
+      };
+    }
+
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${startLng},${startLat};${endLng},${endLat}` +
+      `?overview=false&alternatives=false&steps=false`;
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Routing HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const route = data?.routes?.[0];
+
+    if (!route) {
+      throw new Error("No route returned");
+    }
+
+    return {
+      km: Number(route.distance || 0) / 1000,
+      minutes: Number(route.duration || 0) / 60,
+      source: "osrm"
+    };
+  } catch (e) {
+    console.error("getRoadRouteMetrics error:", e);
+
+    // fallback للمسافة الهوائية فقط لو حصل فشل
+    try {
+      const fallbackKm = distanceKm(startLatLng, endLatLng);
+      return {
+        km: Number(fallbackKm || 0),
+        minutes: Math.max(1, Math.round((Number(fallbackKm || 0) / 28) * 60)),
+        source: "fallback_air"
+      };
+    } catch (fallbackErr) {
+      console.error("getRoadRouteMetrics fallback error:", fallbackErr);
+      return {
+        km: 0,
+        minutes: 0,
+        source: "failed"
+      };
+    }
+  }
+}
+
 function distanceKm(a, b) {
   const R = 6371;
   const toRad = (x) => (x * Math.PI) / 180;
@@ -3896,6 +4087,19 @@ function distanceKm(a, b) {
 
   return 2 * R * Math.asin(Math.sqrt(s));
 }
+
+let pricingSettings = {
+  baseFare: 15,              // فتح العداد
+  pricePerKm: 6,             // سعر الكيلو
+  minimumFare: 25,           // حد أدنى
+  waitingPerMinute: 2,       // سعر دقيقة الانتظار
+  extraPassengerFee: 5,      // لكل راكب إضافي بعد الأول
+  luggageFee: 10,            // رسوم شنط
+  cargoFee: 20,              // رسوم حمولة
+  returnSameDayFee: 25,      // عودة نفس اليوم
+  roundTripMultiplier: 1.8   // لو رحلة ذهاب وعودة محسوبة كنسبة
+};
+
 
 const PRICING = {
   baseFare: 35,
@@ -3971,38 +4175,97 @@ function computeTripPricing(kmRoad) {
   };
 }
 
-function renderTripPricingSummary(kmRoad = 0) {
-  const detailsEl = document.getElementById("tripPricingDetails");
-  if (!detailsEl) return;
+function renderTripPricingSummary(breakdown) {
+  const summaryEl = document.getElementById("tripPricingSummary");
+  if (!summaryEl) return;
 
-  const result = computeTripPricing(kmRoad);
-
-  let luggageText = "لا يوجد";
-  if (result.luggageType === "bags") luggageText = "شنط عادية";
-  if (result.luggageType === "extra") luggageText = "حمولة إضافية";
-
-  let extraLines = "";
-
-  if (result.tripType === "round_same_day") {
-    extraLines += `<div>رسوم الانتظار: <b>${result.waitingFee}</b> جنيه</div>`;
+  if (!breakdown || !Number.isFinite(breakdown.finalPrice)) {
+    summaryEl.innerHTML = `
+      <div class="text-xs text-slate-400">
+        اختر مكان الركوب والوجهة لعرض التسعير.
+      </div>
+    `;
+    return;
   }
 
-  if (result.tripType === "return_other_day") {
-    extraLines += `<div>رسوم حجز/تنسيق العودة: <b>${result.bookingFee}</b> جنيه</div>`;
-    extraLines += `<div class="text-amber-300">سعر العودة النهائي يُحسب لاحقًا عند موعد الرجوع.</div>`;
-  }
+  summaryEl.innerHTML = `
+    <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 space-y-2 text-xs text-slate-200">
+      <div class="flex items-center justify-between gap-3">
+        <span>المسافة الفعلية</span>
+        <span class="font-semibold text-white">${breakdown.km.toFixed(1)} كم</span>
+      </div>
 
-  detailsEl.innerHTML = `
-    <div>نوع الرحلة: <b>${result.tripLabel}</b></div>
-    <div>المسافة التقديرية: <b>${result.km}</b> كم</div>
-    <div>عدد الركاب: <b>${result.passengerCount}</b></div>
-    <div>الشنط/الحمولة: <b>${luggageText}</b></div>
-    <div>سعر الذهاب الأساسي: <b>${result.oneWayFare}</b> جنيه</div>
-    ${result.luggageFee ? `<div>رسوم الشنط/الحمولة: <b>${result.luggageFee}</b> جنيه</div>` : ""}
-    ${result.extraPassengerFee ? `<div>رسوم ركاب إضافيين: <b>${result.extraPassengerFee}</b> جنيه</div>` : ""}
-    ${extraLines}
-    <div class="mt-2 rounded-xl bg-indigo-500/15 px-3 py-2 text-white ring-1 ring-indigo-500/20">
-      السعر النهائي المبدئي: <b>${result.finalPrice}</b> جنيه
+      <div class="flex items-center justify-between gap-3">
+        <span>فتح العداد</span>
+        <span class="font-semibold text-white">${breakdown.baseFare} جنيه</span>
+      </div>
+
+      <div class="flex items-center justify-between gap-3">
+        <span>تكلفة المسافة</span>
+        <span class="font-semibold text-white">${Math.round(breakdown.distanceFare)} جنيه</span>
+      </div>
+
+      ${
+        breakdown.passengersFare > 0
+          ? `
+            <div class="flex items-center justify-between gap-3">
+              <span>ركاب إضافيون</span>
+              <span class="font-semibold text-white">${Math.round(breakdown.passengersFare)} جنيه</span>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        breakdown.luggageFare > 0
+          ? `
+            <div class="flex items-center justify-between gap-3">
+              <span>شنط</span>
+              <span class="font-semibold text-white">${Math.round(breakdown.luggageFare)} جنيه</span>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        breakdown.cargoFare > 0
+          ? `
+            <div class="flex items-center justify-between gap-3">
+              <span>حمولة</span>
+              <span class="font-semibold text-white">${Math.round(breakdown.cargoFare)} جنيه</span>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        breakdown.sameDayReturnFare > 0
+          ? `
+            <div class="flex items-center justify-between gap-3">
+              <span>عودة نفس اليوم</span>
+              <span class="font-semibold text-white">${Math.round(breakdown.sameDayReturnFare)} جنيه</span>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        breakdown.isRoundTrip
+          ? `
+            <div class="flex items-center justify-between gap-3">
+              <span>نوع الرحلة</span>
+              <span class="font-semibold text-white">ذهاب وعودة</span>
+            </div>
+          `
+          : ""
+      }
+
+      <div class="h-px bg-white/10"></div>
+
+      <div class="flex items-center justify-between gap-3 text-sm">
+        <span class="font-semibold text-white">السعر التقديري</span>
+        <span class="font-extrabold text-emerald-300">${breakdown.finalPrice} جنيه</span>
+      </div>
     </div>
   `;
 }
@@ -4024,9 +4287,39 @@ function toggleTripTypeFields() {
     differentDaysBox?.classList.remove("hidden");
   }
 
-  const kmRoad = Number(window.currentKmRoad || 0);
-  window.currentKmRoad = Number(kmRoad || 0);
-renderTripPricingSummary(window.currentKmRoad);
+ const routeMetrics = await getRoadRouteMetrics(pickupLatLng, dropoffLatLng);
+const km = Number(routeMetrics.km || 0);
+const minutes = Number(routeMetrics.minutes || 0);
+
+window.currentKmRoad = km;
+window.currentRouteMinutes = minutes;
+
+const passengerCount =
+  Number(document.getElementById("passengerCount")?.value || 1);
+
+const hasLuggage =
+  !!document.getElementById("hasLuggage")?.checked;
+
+const hasCargo =
+  !!document.getElementById("hasCargo")?.checked;
+
+const isRoundTrip =
+  !!document.getElementById("isRoundTrip")?.checked;
+
+const hasSameDayReturn =
+  !!document.getElementById("sameDayReturn")?.checked;
+
+const priceBreakdown = calculateTripPriceBreakdown({
+  km,
+  waitingMinutes: 0,
+  passengerCount,
+  hasLuggage,
+  hasCargo,
+  isRoundTrip,
+  hasSameDayReturn
+});
+
+renderTripPricingSummary(priceBreakdown);
 }
 
 function initTripOptionsUI() {
@@ -4138,7 +4431,7 @@ function formatLatLngLabel(latlng) {
 
 let currentMapsTarget = "pickup"; // pickup | dropoff
 
-function updateMetrics() {
+async function updateMetrics() {
   const el = document.getElementById("tripMetrics");
   if (!el) return;
 
