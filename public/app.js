@@ -1414,22 +1414,22 @@ async function openAdminUserTrips(userId, role) {
 
 const APP_NAV_CONFIG = {
   rider: [
-    { key: "request", label: "طلب رحلة" },
-    { key: "my_trip", label: "رحلتي الحالية" },
-    { key: "complaints", label: "الشكاوى" },
-    { key: "profile", label: "الحساب" }
+    { key: "request", label: "طلب رحلة", icon: "🚕" },
+    { key: "my_trip", label: "رحلتي", icon: "🧾" },
+    { key: "complaints", label: "الشكاوى", icon: "🛟" },
+    { key: "profile", label: "الحساب", icon: "👤" }
   ],
   driver: [
-    { key: "requests", label: "الطلبات المتاحة" },
-    { key: "current_trip", label: "رحلتي الحالية" },
-    { key: "complaints", label: "الشكاوى" },
-    { key: "profile", label: "الحساب" }
+    { key: "requests", label: "الطلبات", icon: "📥" },
+    { key: "current_trip", label: "رحلتي", icon: "🧾" },
+    { key: "complaints", label: "الشكاوى", icon: "🛟" },
+    { key: "profile", label: "الحساب", icon: "👤" }
   ],
   admin: [
-    { key: "verifications", label: "التوثيق" },
-    { key: "profile_updates", label: "تعديل البيانات" },
-    { key: "complaints", label: "الشكاوى" },
-    { key: "users", label: "المستخدمون" }
+    { key: "verifications", label: "التوثيق", icon: "✅" },
+    { key: "profile_updates", label: "التعديلات", icon: "📝" },
+    { key: "complaints", label: "الشكاوى", icon: "🛟" },
+    { key: "users", label: "المستخدمون", icon: "👥" }
   ]
 };
 
@@ -1446,9 +1446,16 @@ function showAppSection(role, section) {
   currentAppRole = role;
   currentAppSection = section;
 
+  try {
+    localStorage.setItem("lastAppSectionRole", role);
+    localStorage.setItem("lastAppSectionKey", section);
+  } catch (e) {
+    console.error("save last section error:", e);
+  }
+
   hideAllAppSections();
 
-    document.querySelectorAll(".appSection").forEach((el) => {
+  document.querySelectorAll(".appSection").forEach((el) => {
     const elRole = el.getAttribute("data-role");
     const elSection = el.getAttribute("data-section");
     const sharedRoles = (el.getAttribute("data-shared-roles") || "")
@@ -1468,25 +1475,35 @@ function showAppSection(role, section) {
     const isMatch = btn.getAttribute("data-role") === role && btn.getAttribute("data-section") === section;
     btn.classList.toggle("isActive", isMatch);
   });
+
+  document.querySelectorAll(".appBottomNavBtn").forEach((btn) => {
+    const isMatch = btn.getAttribute("data-role") === role && btn.getAttribute("data-section") === section;
+    btn.classList.toggle("isActive", isMatch);
+  });
 }
 
 function renderAppNav(role) {
   const wrap = document.getElementById("appNavWrap");
   const nav = document.getElementById("appNav");
+  const bottomWrap = document.getElementById("appBottomNavWrap");
+  const bottomNav = document.getElementById("appBottomNav");
   const title = document.getElementById("appNavTitle");
-  if (!wrap || !nav || !title) return;
+
+  if (!wrap || !nav || !title || !bottomWrap || !bottomNav) return;
 
   const items = APP_NAV_CONFIG[role] || [];
   if (!items.length) {
     wrap.classList.add("hidden");
+    bottomWrap.classList.add("hidden");
     nav.innerHTML = "";
+    bottomNav.innerHTML = "";
     return;
   }
 
   wrap.classList.remove("hidden");
-  title.textContent = role === "guest"
-    ? "ابدأ"
-    : role === "rider"
+  bottomWrap.classList.remove("hidden");
+
+  title.textContent = role === "rider"
     ? "تنقل الراكب"
     : role === "driver"
     ? "تنقل السائق"
@@ -1497,11 +1514,30 @@ function renderAppNav(role) {
       class="appNavBtn ${currentAppRole === role && currentAppSection === item.key ? "isActive" : ""}"
       data-role="${role}"
       data-section="${item.key}">
-      ${item.label}
+      <span class="text-base leading-none">${item.icon || "•"}</span>
+      <span>${item.label}</span>
+    </button>
+  `).join("");
+
+  bottomNav.innerHTML = items.map((item) => `
+    <button
+      class="appBottomNavBtn ${currentAppRole === role && currentAppSection === item.key ? "isActive" : ""}"
+      data-role="${role}"
+      data-section="${item.key}">
+      <span class="text-base leading-none">${item.icon || "•"}</span>
+      <span class="text-[11px] font-semibold">${item.label}</span>
     </button>
   `).join("");
 
   nav.querySelectorAll(".appNavBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetRole = btn.getAttribute("data-role");
+      const targetSection = btn.getAttribute("data-section");
+      showAppSection(targetRole, targetSection);
+    });
+  });
+
+  bottomNav.querySelectorAll(".appBottomNavBtn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const targetRole = btn.getAttribute("data-role");
       const targetSection = btn.getAttribute("data-section");
@@ -1513,10 +1549,11 @@ function renderAppNav(role) {
 function initRoleBasedNavigation(role) {
   currentAppRole = role;
 
-  // guest: لا نستخدم له الـ nav الجديد نهائيًا
   if (role === "guest") {
     const wrap = document.getElementById("appNavWrap");
+    const bottomWrap = document.getElementById("appBottomNavWrap");
     if (wrap) wrap.classList.add("hidden");
+    if (bottomWrap) bottomWrap.classList.add("hidden");
 
     hideAllAppSections();
 
@@ -1527,9 +1564,27 @@ function initRoleBasedNavigation(role) {
     return;
   }
 
-  if (role === "rider") currentAppSection = "request";
-  if (role === "driver") currentAppSection = "requests";
-  if (role === "admin") currentAppSection = "verifications";
+  let defaultSection = "request";
+  if (role === "driver") defaultSection = "requests";
+  if (role === "admin") defaultSection = "verifications";
+
+  let savedRole = null;
+  let savedSection = null;
+
+  try {
+    savedRole = localStorage.getItem("lastAppSectionRole");
+    savedSection = localStorage.getItem("lastAppSectionKey");
+  } catch (e) {
+    console.error("read last section error:", e);
+  }
+
+  const allowedSections = (APP_NAV_CONFIG[role] || []).map(x => x.key);
+
+  if (savedRole === role && savedSection && allowedSections.includes(savedSection)) {
+    currentAppSection = savedSection;
+  } else {
+    currentAppSection = defaultSection;
+  }
 
   renderAppNav(role);
   showAppSection(role, currentAppSection);
