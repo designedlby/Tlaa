@@ -1430,6 +1430,7 @@ const APP_NAV_CONFIG = {
     { key: "profile_updates", label: "التعديلات", icon: "✎" },
     { key: "complaints", label: "الشكاوى", icon: "◎" },
     { key: "users", label: "المستخدمون", icon: "◈" }
+    { key: "pricing", label: "التسعير", icon: "💰" }
   ]
 };
 
