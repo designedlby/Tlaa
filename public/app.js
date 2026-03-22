@@ -1695,61 +1695,7 @@ window.currentRouteMinutes = 0;
 
 
 
-async function getRoadRouteMetrics(startLatLng, endLatLng) {
-  try {
-    if (!startLatLng || !endLatLng) {
-      return { km: 0, minutes: 0, source: "invalid" };
-    }
 
-    const startLat = Number(startLatLng.lat);
-    const startLng = Number(startLatLng.lng);
-    const endLat = Number(endLatLng.lat);
-    const endLng = Number(endLatLng.lng);
-
-    if (
-      !Number.isFinite(startLat) || !Number.isFinite(startLng) ||
-      !Number.isFinite(endLat) || !Number.isFinite(endLng)
-    ) {
-      return { km: 0, minutes: 0, source: "invalid" };
-    }
-
-    const url =
-      `https://router.project-osrm.org/route/v1/driving/` +
-      `${startLng},${startLat};${endLng},${endLat}` +
-      `?overview=false&alternatives=false&steps=false`;
-
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Routing HTTP ${res.status}`);
-
-    const data = await res.json();
-    const route = data?.routes?.[0];
-    if (!route) throw new Error("No route returned");
-
-    return {
-      km: Number(route.distance || 0) / 1000,
-      minutes: Number(route.duration || 0) / 60,
-      source: "osrm"
-    };
-  } catch (e) {
-    console.error("getRoadRouteMetrics error:", e);
-
-    try {
-      const fallbackKm = distanceKm(startLatLng, endLatLng);
-      return {
-        km: Number(fallbackKm || 0),
-        minutes: Math.max(1, Math.round((Number(fallbackKm || 0) / 28) * 60)),
-        source: "fallback_air"
-      };
-    } catch (fallbackErr) {
-      console.error("getRoadRouteMetrics fallback error:", fallbackErr);
-      return {
-        km: 0,
-        minutes: 0,
-        source: "failed"
-      };
-    }
-  }
-}
 
 function getTripOptionsForPricing() {
   return {
@@ -1904,10 +1850,10 @@ async function updateMetrics() {
   if (!el) return;
 
   if (!pickupLatLng || !dropoffLatLng) {
-    el.textContent = "اختر مكان الركوب والوجهة.";
+    el.textContent = "اختر نقطتين على الخريطة أو بالبحث.";
     window.currentKmRoad = 0;
     window.currentRouteMinutes = 0;
-    renderTripPricingSummary(null, 0);
+    renderTripPricingSummary(0);
     return;
   }
 
@@ -1917,11 +1863,12 @@ async function updateMetrics() {
   window.currentRouteMinutes = Number(routeMetrics.minutes || 0);
 
   const pricing = computeTripPricing(window.currentKmRoad);
+  const price = pricing.finalPrice;
 
-  renderTripPricingSummary(pricing, window.currentKmRoad);
+  renderTripPricingSummary(window.currentKmRoad);
 
   el.textContent =
-    `المسافة: ${window.currentKmRoad.toFixed(1)} كم | الزمن: ${Math.round(window.currentRouteMinutes)} دقيقة | السعر: ${pricing.finalPrice} جنيه`;
+    `المسافة الفعلية: ${window.currentKmRoad.toFixed(1)} كم | الزمن التقريبي: ${Math.round(window.currentRouteMinutes)} دقيقة | السعر المقترح: ${price} جنيه`;
 }
 
 function initTripOptionsUI() {
@@ -2205,37 +2152,44 @@ async function createTrip(riderId) {
 
   const riderStatus = document.getElementById("riderStatus");
 
-  const riderUserSnap = await getDoc(doc(db, "users", riderId));
-  if (riderUserSnap.exists()) {
-    const riderUserData = riderUserSnap.data();
+  const activeTripQuery = query(
+    collection(db, "trips"),
+    where("riderId", "==", riderId),
+    where("status", "in", ["pending", "accepted", "cancel_requested", "waiting_return"]),
+    limit(1)
+  );
 
-    if (riderUserData.activeTripId) {
-      if (riderStatus) {
-        riderStatus.textContent = "لديك بالفعل رحلة أو طلب نشط. لا يمكنك إنشاء طلب جديد قبل إنهاء أو إلغاء الحالي.";
-      }
-      return;
+  const activeTripSnap = await getDocs(activeTripQuery);
+
+  if (!activeTripSnap.empty) {
+    if (riderStatus) {
+      riderStatus.textContent = "لديك بالفعل رحلة أو طلب نشط. لا يمكنك إنشاء طلب جديد قبل إنهاء أو إلغاء الحالي.";
     }
+    return;
   }
 
   const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
   const luggageType = document.getElementById("luggageType")?.value || "none";
-  const tripType = getSelectedTripType();
+
+  const tripType =
+    document.querySelector('input[name="tripType"]:checked')?.value || "one_way";
+
   const waitingMinutes = Number(document.getElementById("waitingMinutes")?.value || 0);
   const returnDate = document.getElementById("returnDate")?.value || "";
   const tripNotes = document.getElementById("tripNotes")?.value?.trim() || "";
 
   if (!pickupLatLng || !dropoffLatLng) {
-    if (riderStatus) riderStatus.textContent = "اختر مكان الركوب والوجهة أولًا.";
+    if (riderStatus) riderStatus.textContent = "حدد مكان الانطلاق والوجهة من الخريطة أو البحث أولًا.";
     return;
   }
 
   if (!passengerCount || passengerCount < 1 || passengerCount > 7) {
-    if (riderStatus) riderStatus.textContent = "عدد الركاب غير صحيح.";
+    if (riderStatus) riderStatus.textContent = "اختر عدد الركاب بشكل صحيح.";
     return;
   }
 
   if (!luggageType) {
-    if (riderStatus) riderStatus.textContent = "اختر نوع الشنط.";
+    if (riderStatus) riderStatus.textContent = "اختر حالة الشنط أو الحمولة.";
     return;
   }
 
@@ -2245,12 +2199,12 @@ async function createTrip(riderId) {
   }
 
   if (tripType === "round_same_day" && waitingMinutes <= 0) {
-    if (riderStatus) riderStatus.textContent = "حدد مدة الانتظار لرحلة الذهاب والعودة.";
+    if (riderStatus) riderStatus.textContent = "اختر مدة الانتظار لرحلة الذهاب والعودة في نفس اليوم.";
     return;
   }
 
   if (tripType === "return_other_day" && !returnDate) {
-    if (riderStatus) riderStatus.textContent = "حدد تاريخ العودة.";
+    if (riderStatus) riderStatus.textContent = "اختر تاريخ العودة المطلوب.";
     return;
   }
 
@@ -2277,7 +2231,7 @@ async function createTrip(riderId) {
   const dropoffLat = dropoffLatLng?.lat ?? null;
   const dropoffLng = dropoffLatLng?.lng ?? null;
 
-  const newTripRef = await addDoc(collection(db, "trips"), {
+  await addDoc(collection(db, "trips"), {
     riderId,
     driverId: null,
 
@@ -2313,11 +2267,9 @@ async function createTrip(riderId) {
     priceBreakdown: pricing
   });
 
-  await updateDoc(doc(db, "users", riderId), {
-    activeTripId: newTripRef.id
-  });
-
-  if (riderStatus) riderStatus.textContent = "تم إرسال الطلب بنجاح.";
+  if (riderStatus) {
+    riderStatus.textContent = "تم إرسال الطلب ✅ انتظر قبول السائق.";
+  }
 }
 
 function getTripTypeLabel(tripType) {
@@ -4174,6 +4126,51 @@ function distanceKm(a, b) {
     Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
 
   return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+async function getRoadRouteMetrics(startLatLng, endLatLng) {
+  try {
+    if (!startLatLng || !endLatLng) {
+      return { km: 0, minutes: 0 };
+    }
+
+    const startLat = Number(startLatLng.lat);
+    const startLng = Number(startLatLng.lng);
+    const endLat = Number(endLatLng.lat);
+    const endLng = Number(endLatLng.lng);
+
+    if (
+      !Number.isFinite(startLat) || !Number.isFinite(startLng) ||
+      !Number.isFinite(endLat) || !Number.isFinite(endLng)
+    ) {
+      return { km: 0, minutes: 0 };
+    }
+
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${startLng},${startLat};${endLng},${endLat}` +
+      `?overview=false&alternatives=false&steps=false`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Routing HTTP ${res.status}`);
+
+    const data = await res.json();
+    const route = data?.routes?.[0];
+    if (!route) throw new Error("No route returned");
+
+    return {
+      km: Number(route.distance || 0) / 1000,
+      minutes: Number(route.duration || 0) / 60
+    };
+  } catch (e) {
+    console.error("getRoadRouteMetrics error:", e);
+
+    const fallbackKm = distanceKm(startLatLng, endLatLng);
+    return {
+      km: Number(fallbackKm || 0),
+      minutes: Math.max(1, Math.round((Number(fallbackKm || 0) / 28) * 60))
+    };
+  }
 }
 
 
