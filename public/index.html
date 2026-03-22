@@ -14,6 +14,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
+  #appNav,
+#appBottomNav {
+  display: grid !important;
+  gap: 10px;
+}
+  
   .appSection {
     display: none;
     scroll-margin-top: 96px;
@@ -59,6 +65,9 @@
     align-items: center;
     gap: 8px;
     min-height: 42px;
+    min-width: 0 !important;
+    width: 100% !important;
+    justify-content: center;
   }
 
   .appNavBtn:hover {
@@ -78,7 +87,6 @@
     border: 1px solid rgba(255,255,255,.07);
     background: rgba(255,255,255,.035);
     color: #dbe3f3;
-    border-radius: 22px;
     min-height: 64px;
     display: flex;
     flex-direction: column;
@@ -86,7 +94,10 @@
     justify-content: center;
     gap: 6px;
     transition: .18s ease;
-    padding: 8px 6px;
+    min-width: 0 !important;
+    width: 100% !important;
+    border-radius: 18px;
+    padding: 10px 6px;
   }
 
   .appBottomNavBtn:hover {
@@ -101,14 +112,15 @@
   }
 
   .appBottomNavBtn .navIcon {
-    font-size: 18px;
+    font-size: 16px !important;
     line-height: 1;
   }
 
   .appBottomNavBtn .navLabel {
-    font-size: 11px;
+  
     font-weight: 700;
     line-height: 1.1;
+    font-size: 10px !important;
   }
 
   @media (max-width: 767px) {
@@ -117,12 +129,23 @@
     }
   }
 
+  
+@media (min-width: 768px) {
+  #appNav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   @media (min-width: 768px) {
     #appBottomNavWrap {
       display: none !important;
     }
   }
 
+  @media (max-width: 767px) {
+  #appBottomNav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  
   html, body {
   overflow-x: hidden;
 }
