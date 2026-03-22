@@ -4176,50 +4176,7 @@ function distanceKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-async function getRoadRouteMetrics(startLatLng, endLatLng) {
-  try {
-    if (!startLatLng || !endLatLng) {
-      return { km: 0, minutes: 0 };
-    }
 
-    const startLat = Number(startLatLng.lat);
-    const startLng = Number(startLatLng.lng);
-    const endLat = Number(endLatLng.lat);
-    const endLng = Number(endLatLng.lng);
-
-    if (
-      !Number.isFinite(startLat) || !Number.isFinite(startLng) ||
-      !Number.isFinite(endLat) || !Number.isFinite(endLng)
-    ) {
-      return { km: 0, minutes: 0 };
-    }
-
-    const url =
-      `https://router.project-osrm.org/route/v1/driving/` +
-      `${startLng},${startLat};${endLng},${endLat}` +
-      `?overview=false&alternatives=false&steps=false`;
-
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Routing HTTP ${res.status}`);
-
-    const data = await res.json();
-    const route = data?.routes?.[0];
-    if (!route) throw new Error("No route returned");
-
-    return {
-      km: Number(route.distance || 0) / 1000,
-      minutes: Number(route.duration || 0) / 60
-    };
-  } catch (e) {
-    console.error("getRoadRouteMetrics error:", e);
-
-    const fallbackKm = distanceKm(startLatLng, endLatLng);
-    return {
-      km: Number(fallbackKm || 0),
-      minutes: Math.max(1, Math.round((Number(fallbackKm || 0) / 28) * 60))
-    };
-  }
-}
 
 window.currentKmRoad = 0;
 window.currentRouteMinutes = 0;
