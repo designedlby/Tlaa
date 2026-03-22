@@ -1820,12 +1820,12 @@ function calculateTripPriceBreakdown({
   };
 }
 
-function renderTripPricingSummary(breakdown) {
-  const detailsEl = document.getElementById("tripPricingDetails");
-  if (!detailsEl) return;
+function renderTripPricingSummary(pricing, kmRoad = 0) {
+  const summaryEl = document.getElementById("tripPricingSummary");
+  if (!summaryEl) return;
 
-  if (!breakdown || !Number.isFinite(breakdown.finalPrice)) {
-    detailsEl.innerHTML = `
+  if (!pricing || !Number.isFinite(pricing.finalPrice)) {
+    summaryEl.innerHTML = `
       <div class="text-xs text-slate-400">
         اختر مكان الركوب والوجهة لعرض التسعير.
       </div>
@@ -1833,16 +1833,68 @@ function renderTripPricingSummary(breakdown) {
     return;
   }
 
-  detailsEl.innerHTML = `
-    <div>المسافة الفعلية: <b>${breakdown.km.toFixed(1)}</b> كم</div>
-    <div>فتح العداد: <b>${breakdown.baseFare}</b> جنيه</div>
-    <div>تكلفة المسافة: <b>${Math.round(breakdown.distanceFare)}</b> جنيه</div>
-    ${breakdown.passengersFare ? `<div>ركاب إضافيون: <b>${Math.round(breakdown.passengersFare)}</b> جنيه</div>` : ""}
-    ${breakdown.luggageFare ? `<div>شنط: <b>${Math.round(breakdown.luggageFare)}</b> جنيه</div>` : ""}
-    ${breakdown.cargoFare ? `<div>حمولة: <b>${Math.round(breakdown.cargoFare)}</b> جنيه</div>` : ""}
-    ${breakdown.sameDayReturnFare ? `<div>عودة نفس اليوم: <b>${Math.round(breakdown.sameDayReturnFare)}</b> جنيه</div>` : ""}
-    <div class="mt-2 rounded-xl bg-indigo-500/15 px-3 py-2 text-white ring-1 ring-indigo-500/20">
-      السعر التقديري: <b>${breakdown.finalPrice}</b> جنيه
+  summaryEl.innerHTML = `
+    <div class="rounded-2xl bg-black/20 ring-1 ring-white/10 p-3 space-y-2 text-xs text-slate-200">
+      <div class="flex items-center justify-between gap-3">
+        <span>المسافة الفعلية</span>
+        <span class="font-semibold text-white">${Number(kmRoad || 0).toFixed(1)} كم</span>
+      </div>
+
+      <div class="flex items-center justify-between gap-3">
+        <span>السعر الأساسي</span>
+        <span class="font-semibold text-white">${Math.round(pricing.oneWayFare || 0)} جنيه</span>
+      </div>
+
+      ${
+        pricing.luggageFee > 0
+          ? `
+            <div class="flex items-center justify-between gap-3">
+              <span>الشنط / الحمولة</span>
+              <span class="font-semibold text-white">${Math.round(pricing.luggageFee)} جنيه</span>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        pricing.extraPassengerFee > 0
+          ? `
+            <div class="flex items-center justify-between gap-3">
+              <span>ركاب إضافيون</span>
+              <span class="font-semibold text-white">${Math.round(pricing.extraPassengerFee)} جنيه</span>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        pricing.waitingFee > 0
+          ? `
+            <div class="flex items-center justify-between gap-3">
+              <span>الانتظار</span>
+              <span class="font-semibold text-white">${Math.round(pricing.waitingFee)} جنيه</span>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        pricing.bookingFee > 0
+          ? `
+            <div class="flex items-center justify-between gap-3">
+              <span>حجز العودة</span>
+              <span class="font-semibold text-white">${Math.round(pricing.bookingFee)} جنيه</span>
+            </div>
+          `
+          : ""
+      }
+
+      <div class="h-px bg-white/10"></div>
+
+      <div class="flex items-center justify-between gap-3 text-sm">
+        <span class="font-semibold text-white">السعر التقديري</span>
+        <span class="font-extrabold text-emerald-300">${Math.round(pricing.finalPrice || 0)} جنيه</span>
+      </div>
     </div>
   `;
 }
@@ -1855,32 +1907,21 @@ async function updateMetrics() {
     el.textContent = "اختر مكان الركوب والوجهة.";
     window.currentKmRoad = 0;
     window.currentRouteMinutes = 0;
-    renderTripPricingSummary(null);
+    renderTripPricingSummary(null, 0);
     return;
   }
 
   const routeMetrics = await getRoadRouteMetrics(pickupLatLng, dropoffLatLng);
-  const km = Number(routeMetrics.km || 0);
-  const minutes = Number(routeMetrics.minutes || 0);
 
-  window.currentKmRoad = km;
-  window.currentRouteMinutes = minutes;
+  window.currentKmRoad = Number(routeMetrics.km || 0);
+  window.currentRouteMinutes = Number(routeMetrics.minutes || 0);
 
-  const tripOptions = getTripOptionsForPricing();
+  const pricing = computeTripPricing(window.currentKmRoad);
 
-  const breakdown = calculateTripPriceBreakdown({
-    km,
-    waitingMinutes: 0,
-    passengerCount: tripOptions.passengerCount,
-    hasLuggage: tripOptions.hasLuggage,
-    hasCargo: tripOptions.hasCargo,
-    isRoundTrip: tripOptions.isRoundTrip,
-    hasSameDayReturn: tripOptions.hasSameDayReturn
-  });
+  renderTripPricingSummary(pricing, window.currentKmRoad);
 
-  renderTripPricingSummary(breakdown);
-
-  el.textContent = `المسافة: ${km.toFixed(1)} كم | الزمن: ${Math.round(minutes)} دقيقة | السعر: ${breakdown.finalPrice} جنيه`;
+  el.textContent =
+    `المسافة: ${window.currentKmRoad.toFixed(1)} كم | الزمن: ${Math.round(window.currentRouteMinutes)} دقيقة | السعر: ${pricing.finalPrice} جنيه`;
 }
 
 function initTripOptionsUI() {
@@ -1923,6 +1964,9 @@ onAuthStateChanged(auth, async (user) => {
     const snap = await getDoc(ref);
     const profile = snap.exists() ? snap.data() : { name: user.email, role: "rider" };
 
+    window.currentKmRoad = 0;
+window.currentRouteMinutes = 0;
+    
     await loadPricingSettings();
     // ✅ هنا بالظبط تحطها
 if (!localStorage.getItem("permissionsAsked") && profile.role !== "admin") {
@@ -2150,20 +2194,18 @@ renderTripPricingSummary(null);}
 
 async function createTrip(riderId) {
   const pickup =
-  document.getElementById("pickupSearch")?.value?.trim() ||
-  document.getElementById("pickupMapsInput")?.value?.trim() ||
-  (pickupLatLng ? `${pickupLatLng.lat.toFixed(6)}, ${pickupLatLng.lng.toFixed(6)}` : "");
+    document.getElementById("pickupSearch")?.value?.trim() ||
+    document.getElementById("pickupMapsInput")?.value?.trim() ||
+    (pickupLatLng ? `${pickupLatLng.lat.toFixed(6)}, ${pickupLatLng.lng.toFixed(6)}` : "");
 
-const dropoff =
-  document.getElementById("dropoffSearch")?.value?.trim() ||
-  document.getElementById("dropoffMapsInput")?.value?.trim() ||
-  (dropoffLatLng ? `${dropoffLatLng.lat.toFixed(6)}, ${dropoffLatLng.lng.toFixed(6)}` : "");
-  
+  const dropoff =
+    document.getElementById("dropoffSearch")?.value?.trim() ||
+    document.getElementById("dropoffMapsInput")?.value?.trim() ||
+    (dropoffLatLng ? `${dropoffLatLng.lat.toFixed(6)}, ${dropoffLatLng.lng.toFixed(6)}` : "");
+
   const riderStatus = document.getElementById("riderStatus");
 
-    // منع إنشاء أكثر من رحلة نشطة لنفس الراكب
-    const riderUserSnap = await getDoc(doc(db, "users", riderId));
-
+  const riderUserSnap = await getDoc(doc(db, "users", riderId));
   if (riderUserSnap.exists()) {
     const riderUserData = riderUserSnap.data();
 
@@ -2174,7 +2216,7 @@ const dropoff =
       return;
     }
   }
-  
+
   const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
   const luggageType = document.getElementById("luggageType")?.value || "none";
   const tripType = getSelectedTripType();
@@ -2183,17 +2225,17 @@ const dropoff =
   const tripNotes = document.getElementById("tripNotes")?.value?.trim() || "";
 
   if (!pickupLatLng || !dropoffLatLng) {
-  if (riderStatus) riderStatus.textContent = "حدد مكان الانطلاق والوجهة من الخريطة أو البحث أولًا.";
-  return;
-}
+    if (riderStatus) riderStatus.textContent = "اختر مكان الركوب والوجهة أولًا.";
+    return;
+  }
 
   if (!passengerCount || passengerCount < 1 || passengerCount > 7) {
-    if (riderStatus) riderStatus.textContent = "اختر عدد الركاب بشكل صحيح.";
+    if (riderStatus) riderStatus.textContent = "عدد الركاب غير صحيح.";
     return;
   }
 
   if (!luggageType) {
-    if (riderStatus) riderStatus.textContent = "اختر حالة الشنط أو الحمولة.";
+    if (riderStatus) riderStatus.textContent = "اختر نوع الشنط.";
     return;
   }
 
@@ -2203,21 +2245,15 @@ const dropoff =
   }
 
   if (tripType === "round_same_day" && waitingMinutes <= 0) {
-    if (riderStatus) riderStatus.textContent = "اختر مدة الانتظار لرحلة الذهاب والعودة في نفس اليوم.";
+    if (riderStatus) riderStatus.textContent = "حدد مدة الانتظار لرحلة الذهاب والعودة.";
     return;
   }
 
   if (tripType === "return_other_day" && !returnDate) {
-    if (riderStatus) riderStatus.textContent = "اختر تاريخ العودة المطلوب.";
+    if (riderStatus) riderStatus.textContent = "حدد تاريخ العودة.";
     return;
   }
 
-const hasLuggage = !!document.getElementById("hasLuggage")?.checked;
-const hasCargo = !!document.getElementById("hasCargo")?.checked;
-const isRoundTrip = !!document.getElementById("isRoundTrip")?.checked;
-const hasSameDayReturn = !!document.getElementById("sameDayReturn")?.checked;
-
-  
   const pickupPlace = pickupLatLng
     ? await reverseGeocode(pickupLatLng.lat, pickupLatLng.lng)
     : { shortText: pickup, fullText: pickup };
@@ -2228,86 +2264,60 @@ const hasSameDayReturn = !!document.getElementById("sameDayReturn")?.checked;
 
   const pickupDisplay = pickupPlace.shortText || pickup;
   const dropoffDisplay = dropoffPlace.shortText || dropoff;
-  
+
   const routeMetrics = await getRoadRouteMetrics(pickupLatLng, dropoffLatLng);
+  window.currentKmRoad = Number(routeMetrics.km || 0);
+  window.currentRouteMinutes = Number(routeMetrics.minutes || 0);
 
-const tripOptions = getTripOptionsForPricing();
+  const pricing = computeTripPricing(window.currentKmRoad);
+  const kmEstimated = Number(window.currentKmRoad || 0);
 
-const kmEstimated = Number(routeMetrics.km || 0);
+  const pickupLat = pickupLatLng?.lat ?? null;
+  const pickupLng = pickupLatLng?.lng ?? null;
+  const dropoffLat = dropoffLatLng?.lat ?? null;
+  const dropoffLng = dropoffLatLng?.lng ?? null;
 
-const pickupLat = pickupLatLng?.lat ?? null;
-const pickupLng = pickupLatLng?.lng ?? null;
-const dropoffLat = dropoffLatLng?.lat ?? null;
-const dropoffLng = dropoffLatLng?.lng ?? null;
-
-const priceBreakdown = calculateTripPriceBreakdown({
-  km: routeMetrics.km,
-  waitingMinutes: 0,
-  passengerCount: tripOptions.passengerCount,
-  hasLuggage: tripOptions.hasLuggage,
-  hasCargo: tripOptions.hasCargo,
-  isRoundTrip: tripOptions.isRoundTrip,
-  hasSameDayReturn: tripOptions.hasSameDayReturn
-});
-
-  
   const newTripRef = await addDoc(collection(db, "trips"), {
+    riderId,
+    driverId: null,
 
-  kmEstimated: Number(routeMetrics.km || 0),
-durationEstimatedMinutes: Number(routeMetrics.minutes || 0),
-price: priceBreakdown.finalPrice,
-passengerCount: tripOptions.passengerCount,
-hasLuggage: tripOptions.hasLuggage,
-hasCargo: tripOptions.hasCargo,
-isRoundTrip: tripOptions.isRoundTrip,
-hasSameDayReturn: tripOptions.hasSameDayReturn,
-priceBreakdown,
-    
-  riderId,
-  driverId: null,
-  pickup: pickupDisplay,
-  dropoff: dropoffDisplay,
-  pickupAddress: pickupDisplay,
-  dropoffAddress: dropoffDisplay,
-  pickupFullAddress: pickupPlace.fullText || pickupDisplay,
-  dropoffFullAddress: dropoffPlace.fullText || dropoffDisplay,
-    
+    pickup: pickupDisplay,
+    dropoff: dropoffDisplay,
+
+    pickupAddress: pickupDisplay,
+    dropoffAddress: dropoffDisplay,
+
+    pickupFullAddress: pickupPlace.fullText || pickupDisplay,
+    dropoffFullAddress: dropoffPlace.fullText || dropoffDisplay,
+
     pickupLat,
-pickupLng,
-dropoffLat,
-dropoffLng,
-kmEstimated,
-  
+    pickupLng,
+    dropoffLat,
+    dropoffLng,
 
+    kmEstimated,
+    durationEstimatedMinutes: Number(routeMetrics.minutes || 0),
+
+    price: pricing.finalPrice,
     status: "pending",
     createdAt: serverTimestamp(),
+
+    passengerCount,
     luggageType,
     tripType,
     waitingMinutes: tripType === "round_same_day" ? waitingMinutes : 0,
     returnDate: tripType === "return_other_day" ? returnDate : "",
     tripNotes,
     returnRequestScheduled: tripType === "return_other_day",
-  
+
+    priceBreakdown: pricing
   });
 
-try {
-  const riderUserRef = doc(db, "users", riderId);
-  const riderSnap = await getDoc(riderUserRef);
-  const currentTripsCount = riderSnap.exists() ? Number(riderSnap.data().tripsCount || 0) : 0;
-
-  await updateDoc(riderUserRef, {
-    tripsCount: currentTripsCount + 1,
-    activeTripId: newTripRef.id
-  });
-} catch (e) {
-  console.error("update rider tripsCount error:", e);
-}
-  
   await updateDoc(doc(db, "users", riderId), {
     activeTripId: newTripRef.id
   });
-  
-  if (riderStatus) riderStatus.textContent = "تم إرسال الطلب ✅ انتظر قبول السائق.";
+
+  if (riderStatus) riderStatus.textContent = "تم إرسال الطلب بنجاح.";
 }
 
 function getTripTypeLabel(tripType) {
@@ -4166,6 +4176,50 @@ function distanceKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
+async function getRoadRouteMetrics(startLatLng, endLatLng) {
+  try {
+    if (!startLatLng || !endLatLng) {
+      return { km: 0, minutes: 0 };
+    }
+
+    const startLat = Number(startLatLng.lat);
+    const startLng = Number(startLatLng.lng);
+    const endLat = Number(endLatLng.lat);
+    const endLng = Number(endLatLng.lng);
+
+    if (
+      !Number.isFinite(startLat) || !Number.isFinite(startLng) ||
+      !Number.isFinite(endLat) || !Number.isFinite(endLng)
+    ) {
+      return { km: 0, minutes: 0 };
+    }
+
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${startLng},${startLat};${endLng},${endLat}` +
+      `?overview=false&alternatives=false&steps=false`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Routing HTTP ${res.status}`);
+
+    const data = await res.json();
+    const route = data?.routes?.[0];
+    if (!route) throw new Error("No route returned");
+
+    return {
+      km: Number(route.distance || 0) / 1000,
+      minutes: Number(route.duration || 0) / 60
+    };
+  } catch (e) {
+    console.error("getRoadRouteMetrics error:", e);
+
+    const fallbackKm = distanceKm(startLatLng, endLatLng);
+    return {
+      km: Number(fallbackKm || 0),
+      minutes: Math.max(1, Math.round((Number(fallbackKm || 0) / 28) * 60))
+    };
+  }
+}
 
 window.currentKmRoad = 0;
 window.currentRouteMinutes = 0;
