@@ -1435,7 +1435,6 @@ const APP_NAV_CONFIG = {
     { key: "profile_updates", label: "التعديلات", icon: "✎" },
     { key: "complaints", label: "الشكاوى", icon: "◎" },
     { key: "users", label: "المستخدمون", icon: "◈" },
-    { key: "pricing", label: "التسعير", icon: "💰" }
   ]
 };
 
@@ -1694,27 +1693,7 @@ let pricingSettings = {
 window.currentKmRoad = 0;
 window.currentRouteMinutes = 0;
 
-async function loadPricingSettings() {
-  try {
-    const ref = doc(db, "settings", "pricing");
-    const snap = await getDoc(ref);
 
-    if (!snap.exists()) {
-      await setDoc(ref, pricingSettings, { merge: true });
-      return pricingSettings;
-    }
-
-    pricingSettings = {
-      ...pricingSettings,
-      ...snap.data()
-    };
-
-    return pricingSettings;
-  } catch (e) {
-    console.error("loadPricingSettings error:", e);
-    return pricingSettings;
-  }
-}
 
 async function getRoadRouteMetrics(startLatLng, endLatLng) {
   try {
@@ -1922,50 +1901,9 @@ function initTripOptionsUI() {
   });
 }
 
-async function renderPricingSettingsForm() {
-  await loadPricingSettings();
 
-  document.getElementById("pricingBaseFare").value = pricingSettings.baseFare ?? 0;
-  document.getElementById("pricingPerKm").value = pricingSettings.pricePerKm ?? 0;
-  document.getElementById("pricingMinimumFare").value = pricingSettings.minimumFare ?? 0;
-  document.getElementById("pricingWaitingPerMinute").value = pricingSettings.waitingPerMinute ?? 0;
-  document.getElementById("pricingExtraPassengerFee").value = pricingSettings.extraPassengerFee ?? 0;
-  document.getElementById("pricingLuggageFee").value = pricingSettings.luggageFee ?? 0;
-  document.getElementById("pricingCargoFee").value = pricingSettings.cargoFee ?? 0;
-  document.getElementById("pricingReturnSameDayFee").value = pricingSettings.returnSameDayFee ?? 0;
-  document.getElementById("pricingRoundTripMultiplier").value = pricingSettings.roundTripMultiplier ?? 1;
-}
 
-async function savePricingSettingsFromAdmin() {
-  const statusEl = document.getElementById("pricingSettingsStatus");
 
-  const nextSettings = {
-    baseFare: Number(document.getElementById("pricingBaseFare")?.value || 0),
-    pricePerKm: Number(document.getElementById("pricingPerKm")?.value || 0),
-    minimumFare: Number(document.getElementById("pricingMinimumFare")?.value || 0),
-    waitingPerMinute: Number(document.getElementById("pricingWaitingPerMinute")?.value || 0),
-    extraPassengerFee: Number(document.getElementById("pricingExtraPassengerFee")?.value || 0),
-    luggageFee: Number(document.getElementById("pricingLuggageFee")?.value || 0),
-    cargoFee: Number(document.getElementById("pricingCargoFee")?.value || 0),
-    returnSameDayFee: Number(document.getElementById("pricingReturnSameDayFee")?.value || 0),
-    roundTripMultiplier: Number(document.getElementById("pricingRoundTripMultiplier")?.value || 1)
-  };
-
-  try {
-    await setDoc(doc(db, "settings", "pricing"), nextSettings, { merge: true });
-    pricingSettings = {
-      ...pricingSettings,
-      ...nextSettings
-    };
-
-    if (statusEl) statusEl.textContent = "تم حفظ الأسعار بنجاح ✅";
-    showAlert("تم حفظ إعدادات التسعير ✅", "success");
-  } catch (e) {
-    console.error("savePricingSettingsFromAdmin error:", e);
-    if (statusEl) statusEl.textContent = "فشل حفظ الأسعار.";
-    showAlert("فشل حفظ إعدادات التسعير.", "error");
-  }
-}
 
 
 
@@ -2161,11 +2099,7 @@ if (profile.role === "admin") {
     watchAdminComplaints();
   await initAdminUsersManagement();
   
-  await renderPricingSettingsForm();
-  document.getElementById("adminPricingBox")?.classList.remove("hidden");
-  document.getElementById("savePricingSettingsBtn")?.addEventListener("click", async () => {
-    await savePricingSettingsFromAdmin();
-  });
+  
   
   adminBox?.classList.remove("hidden");
   riderBox?.classList.add("hidden");
