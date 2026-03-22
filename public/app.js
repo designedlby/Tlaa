@@ -1288,9 +1288,6 @@ function initAdminUsersControls() {
     });
   });
 
-document.getElementById("savePricingSettingsBtn")?.addEventListener("click", async () => {
-  await savePricingSettingsFromAdmin();
-});
 
   
 document.getElementById("closeAdminUserTripsModalBtn")?.addEventListener("click", () => {
@@ -1913,9 +1910,7 @@ onAuthStateChanged(auth, async (user) => {
 
     window.currentKmRoad = 0;
 window.currentRouteMinutes = 0;
-    
-    await loadPricingSettings();
-    // ✅ هنا بالظبط تحطها
+        // ✅ هنا بالظبط تحطها
 if (!localStorage.getItem("permissionsAsked") && profile.role !== "admin") {
   setTimeout(() => {
     showPermissionsModal();
