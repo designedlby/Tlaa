@@ -4168,7 +4168,73 @@ async function getRoadRouteMetrics(startLatLng, endLatLng) {
   }
 }
 
+function roundMoney(v) {
+  return Math.round(Number(v || 0));
+}
 
+function computeTripPricing(kmRoad = 0) {
+  const passengerCount = Number(document.getElementById("passengerCount")?.value || 1);
+  const luggageType = document.getElementById("luggageType")?.value || "none";
+  const waitingMinutes = Number(document.getElementById("waitingMinutes")?.value || 0);
+
+  const tripType =
+    document.querySelector('input[name="tripType"]:checked')?.value || "one_way";
+
+  const baseFare = 15;
+  const pricePerKm = 6;
+  const minimumFare = 25;
+
+  const extraPassengerFee = Math.max(0, passengerCount - 1) * 5;
+
+  let luggageFee = 0;
+  if (luggageType === "medium") luggageFee = 10;
+  if (luggageType === "large") luggageFee = 20;
+  if (luggageType === "cargo") luggageFee = 35;
+
+  let waitingFee = 0;
+  if (tripType === "round_same_day") {
+    waitingFee = waitingMinutes * 2;
+  }
+
+  let bookingFee = 0;
+  if (tripType === "return_other_day") {
+    bookingFee = 25;
+  }
+
+  let oneWayFare = baseFare + (Number(kmRoad || 0) * pricePerKm);
+
+  let finalPrice = oneWayFare + extraPassengerFee + luggageFee + waitingFee + bookingFee;
+
+  if (tripType === "round_same_day") {
+    finalPrice = (oneWayFare * 2) + extraPassengerFee + luggageFee + waitingFee;
+  }
+
+  if (tripType === "return_other_day") {
+    finalPrice = oneWayFare + extraPassengerFee + luggageFee + bookingFee;
+  }
+
+  finalPrice = Math.max(minimumFare, roundMoney(finalPrice));
+
+  return {
+    kmRoad: Number(kmRoad || 0),
+    passengerCount,
+    luggageType,
+    tripType,
+    waitingMinutes,
+
+    baseFare: roundMoney(baseFare),
+    pricePerKm: roundMoney(pricePerKm),
+    minimumFare: roundMoney(minimumFare),
+
+    oneWayFare: roundMoney(oneWayFare),
+    extraPassengerFee: roundMoney(extraPassengerFee),
+    luggageFee: roundMoney(luggageFee),
+    waitingFee: roundMoney(waitingFee),
+    bookingFee: roundMoney(bookingFee),
+
+    finalPrice
+  };
+}
 
 window.currentKmRoad = 0;
 window.currentRouteMinutes = 0;
